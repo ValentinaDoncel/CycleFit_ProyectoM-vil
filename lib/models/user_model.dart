@@ -7,6 +7,7 @@ class UserModel {
   final String? fotoPerfil;
   final DateTime? fechaNacimiento;
   final DateTime? ultimaPeriodo;
+  final String? periodoRegular;
   final String? notas;
   final DateTime fechaRegistro;
 
@@ -17,6 +18,7 @@ class UserModel {
     this.fotoPerfil,
     this.fechaNacimiento,
     this.ultimaPeriodo,
+    this.periodoRegular,
     this.notas,
     DateTime? fechaRegistro,
   }) : fechaRegistro = fechaRegistro ?? DateTime.now();
@@ -34,6 +36,7 @@ class UserModel {
       ultimaPeriodo: json['ultimaPeriodo'] != null
           ? (json['ultimaPeriodo'] as Timestamp).toDate()
           : null,
+      periodoRegular: json['periodoRegular'] as String?,
       notas: json['notas'] as String?,
       fechaRegistro: json['fechaRegistro'] != null
           ? (json['fechaRegistro'] as Timestamp).toDate()
@@ -50,6 +53,7 @@ class UserModel {
       'fotoPerfil': fotoPerfil,
       'fechaNacimiento': fechaNacimiento != null ? Timestamp.fromDate(fechaNacimiento!) : null,
       'ultimaPeriodo': ultimaPeriodo != null ? Timestamp.fromDate(ultimaPeriodo!) : null,
+      'periodoRegular': periodoRegular,
       'notas': notas,
       'fechaRegistro': Timestamp.fromDate(fechaRegistro),
     };
@@ -63,6 +67,7 @@ class UserModel {
     String? fotoPerfil,
     DateTime? fechaNacimiento,
     DateTime? ultimaPeriodo,
+    String? periodoRegular,
     String? notas,
     DateTime? fechaRegistro,
   }) {
@@ -73,6 +78,7 @@ class UserModel {
       fotoPerfil: fotoPerfil ?? this.fotoPerfil,
       fechaNacimiento: fechaNacimiento ?? this.fechaNacimiento,
       ultimaPeriodo: ultimaPeriodo ?? this.ultimaPeriodo,
+      periodoRegular: periodoRegular ?? this.periodoRegular,
       notas: notas ?? this.notas,
       fechaRegistro: fechaRegistro ?? this.fechaRegistro,
     );

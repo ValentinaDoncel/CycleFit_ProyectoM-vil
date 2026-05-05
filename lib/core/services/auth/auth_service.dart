@@ -27,6 +27,7 @@ class AuthService {
     required String password,
     DateTime? fechaNacimiento,
     DateTime? ultimaPeriodo,
+    String? periodoRegular,
     String? notas,
   }) async {
     try {
@@ -59,6 +60,7 @@ class AuthService {
         email: email.trim().toLowerCase(),
         fechaNacimiento: fechaNacimiento,
         ultimaPeriodo: ultimaPeriodo,
+        periodoRegular: periodoRegular,
         notas: notas,
       );
 

@@ -346,6 +346,56 @@ class WorkoutData {
   }
 }
 
+class OnboardingStatusData {
+  const OnboardingStatusData({
+    this.completedSymptoms = false,
+    this.completedWorkout = false,
+    this.skippedSymptoms = false,
+    this.skippedWorkout = false,
+  });
+
+  final bool completedSymptoms;
+  final bool completedWorkout;
+  final bool skippedSymptoms;
+  final bool skippedWorkout;
+
+  bool get needsSymptoms => !completedSymptoms;
+  bool get needsWorkout => !completedWorkout;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'completedSymptoms': completedSymptoms,
+      'completedWorkout': completedWorkout,
+      'skippedSymptoms': skippedSymptoms,
+      'skippedWorkout': skippedWorkout,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory OnboardingStatusData.fromMap(Map<String, dynamic> map) {
+    return OnboardingStatusData(
+      completedSymptoms: map['completedSymptoms'] as bool? ?? false,
+      completedWorkout: map['completedWorkout'] as bool? ?? false,
+      skippedSymptoms: map['skippedSymptoms'] as bool? ?? false,
+      skippedWorkout: map['skippedWorkout'] as bool? ?? false,
+    );
+  }
+
+  OnboardingStatusData copyWith({
+    bool? completedSymptoms,
+    bool? completedWorkout,
+    bool? skippedSymptoms,
+    bool? skippedWorkout,
+  }) {
+    return OnboardingStatusData(
+      completedSymptoms: completedSymptoms ?? this.completedSymptoms,
+      completedWorkout: completedWorkout ?? this.completedWorkout,
+      skippedSymptoms: skippedSymptoms ?? this.skippedSymptoms,
+      skippedWorkout: skippedWorkout ?? this.skippedWorkout,
+    );
+  }
+}
+
 class TipHeroModel {
   const TipHeroModel({
     required this.id,

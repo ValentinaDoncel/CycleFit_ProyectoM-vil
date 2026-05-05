@@ -1,7 +1,8 @@
+import 'package:cycle_fit/controllers/register_controller.dart';
+import 'package:cycle_fit/widgets/onboarding_choice_tile.dart';
+import 'package:cycle_fit/widgets/onboarding_step_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cycle_fit/controllers/register_controller.dart';
-import 'package:cycle_fit/core/theme/app_colors.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -11,368 +12,226 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _accountFormKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Crear Cuenta'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: ChangeNotifierProvider(
-            create: (_) => RegisterController(),
-            child: Consumer<RegisterController>(
-              builder: (context, controller, _) {
-                return Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Título
-                      Text(
-                        'Únete a CycleFit',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Completa tu información para comenzar',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Campo Nombre
-                      TextFormField(
-                        controller: controller.nombreController,
-                        decoration: InputDecoration(
-                          labelText: 'Nombre Completo *',
-                          hintText: 'Tu nombre',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.person_outline),
-                        ),
-                        validator: (value) =>
-                            controller.validateNombre(value),
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo Email
-                      TextFormField(
-                        controller: controller.emailController,
-                        decoration: InputDecoration(
-                          labelText: 'Email *',
-                          hintText: 'correo@ejemplo.com',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) =>
-                            controller.validateEmail(value),
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo Contraseña
-                      TextFormField(
-                        controller: controller.passwordController,
-                        decoration: InputDecoration(
-                          labelText: 'Contraseña *',
-                          hintText: 'Mínimo 8 caracteres',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              controller.obscurePassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
-                            onPressed: () =>
-                                controller.togglePasswordVisibility(),
-                          ),
-                          helperText:
-                              'Debe incluir mayúscula, número y tener al menos 8 caracteres',
-                          helperMaxLines: 2,
-                        ),
-                        obscureText: controller.obscurePassword,
-                        validator: (value) =>
-                            controller.validatePassword(value),
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo Confirmar Contraseña
-                      TextFormField(
-                        controller: controller.confirmPasswordController,
-                        decoration: InputDecoration(
-                          labelText: 'Confirmar Contraseña *',
-                          hintText: 'Repite tu contraseña',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.lock_outlined),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              controller.obscureConfirmPassword
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
-                            ),
-                            onPressed: () =>
-                                controller.toggleConfirmPasswordVisibility(),
-                          ),
-                        ),
-                        obscureText: controller.obscureConfirmPassword,
-                        validator: (value) =>
-                            controller.validateConfirmPassword(value),
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Sección Información Opcional
-                      Text(
-                        'Información Opcional',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Campo Fecha de Nacimiento
-                      TextFormField(
-                        controller: controller.birthDateController,
-                        decoration: InputDecoration(
-                          labelText: 'Fecha de Nacimiento',
-                          hintText: 'dd/mm/yyyy',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.calendar_today_outlined),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.date_range_outlined),
-                            onPressed: () => _selectDate(context, controller),
-                          ),
-                        ),
-                        readOnly: true,
-                        validator: (value) =>
-                            value!.isNotEmpty
-                                ? controller.validateBirthDate(value)
-                                : null,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo Última Menstruación
-                      TextFormField(
-                        controller: controller.lastPeriodController,
-                        decoration: InputDecoration(
-                          labelText: 'Última Menstruación',
-                          hintText: 'dd/mm/yyyy',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.calendar_today_outlined),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.date_range_outlined),
-                            onPressed: () =>
-                                _selectLastPeriodDate(context, controller),
-                          ),
-                        ),
-                        readOnly: true,
-                        validator: (value) =>
-                            value!.isNotEmpty
-                                ? controller.validateLastPeriodDate(value)
-                                : null,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Campo Notas
-                      TextFormField(
-                        controller: controller.notesController,
-                        decoration: InputDecoration(
-                          labelText: 'Notas Adicionales',
-                          hintText: 'Información adicional (opcional)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          prefixIcon: const Icon(Icons.notes_outlined),
-                        ),
-                        maxLines: 3,
-                        maxLength: 500,
-                        validator: (value) =>
-                            controller.validateOptionalNotes(value),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Mensaje de error
-                      if (controller.errorMessage != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            border: Border.all(
-                              color: Colors.red.shade200,
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                color: Colors.red.shade600,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  controller.errorMessage!,
-                                  style: TextStyle(
-                                    color: Colors.red.shade600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.close,
-                                  color: Colors.red.shade600,
-                                  size: 18,
-                                ),
-                                onPressed: () => controller.clearError(),
-                                constraints: const BoxConstraints(),
-                                padding: EdgeInsets.zero,
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-
-                      // Botón Registrarse
-                      ElevatedButton(
-                        onPressed: controller.isLoading
-                            ? null
-                            : () async {
-                                if (_formKey.currentState!.validate()) {
-                                  final success = await controller.register();
-                                  if (success && mounted) {
-                                    ScaffoldMessenger.of(context)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          '¡Bienvenido a CycleFit!',
-                                        ),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                    await Future.delayed(
-                                        const Duration(seconds: 2));
-                                    if (mounted) {
-                                      Navigator.pushNamedAndRemoveUntil(
-                                        context,
-                                        '/dashboard',
-                                        (route) => false,
-                                      );
-                                    }
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          disabledBackgroundColor: Colors.grey[300],
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: controller.isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                'Crear Cuenta',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelLarge
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Enlace Login
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '¿Ya tienes cuenta? ',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Colors.grey[600],
-                                ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: Text(
-                              'Inicia Sesión',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
+    return ChangeNotifierProvider(
+      create: (_) => RegisterController(),
+      child: Consumer<RegisterController>(
+        builder: (context, controller, _) {
+          return OnboardingStepLayout(
+            progress: controller.progress,
+            title: _titleForStep(controller.currentStep),
+            primaryLabel: _primaryLabelForStep(controller.currentStep),
+            isLoading: controller.isLoading,
+            errorMessage: controller.errorMessage,
+            onClearError: controller.clearError,
+            onBackPressed: () => _handleBack(context, controller),
+            onSkipPressed: controller.canSkipCurrentStep
+                ? () async => _handleSkip(context, controller)
+                : null,
+            onPrimaryPressed: () async =>
+                _handleContinue(context, controller),
+            child: _bodyForStep(context, controller),
+          );
+        },
       ),
     );
   }
 
-  Future<void> _selectDate(
-      BuildContext context, RegisterController controller) async {
-    final now = DateTime.now();
-    final firstDate = DateTime(1900);
-    final lastDate = now;
+  Widget _bodyForStep(BuildContext context, RegisterController controller) {
+    switch (controller.currentStep) {
+      case RegisterStep.account:
+        return _AccountStep(
+          formKey: _accountFormKey,
+          controller: controller,
+          onBirthDateTap: () => _selectBirthDate(context, controller),
+          onLastPeriodTap: () => _selectLastPeriodDate(context, controller),
+        );
+      case RegisterStep.regularity:
+        return OnboardingChoiceList(
+          children: controller.regularityOptions
+              .map(
+                (item) => OnboardingChoiceTile(
+                  label: item.label,
+                  isSelected: item.isSelected,
+                  onTap: () => controller.selectRegularity(item.keyName),
+                ),
+              )
+              .toList(),
+        );
+      case RegisterStep.symptoms:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OnboardingChoiceList(
+              children: controller.symptomChoices
+                  .map(
+                    (item) => OnboardingChoiceTile(
+                      label: item.label,
+                      isSelected: item.isSelected,
+                      onTap: () => controller.toggleSymptom(item.keyName),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 28),
+            const Text(
+              '¿Cómo te sientes hoy?',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OnboardingChoiceList(
+              children: controller.energyOptions
+                  .map(
+                    (item) => OnboardingChoiceTile(
+                      label: item.label,
+                      isSelected: item.isSelected,
+                      onTap: () => controller.selectEnergy(item.keyName),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        );
+      case RegisterStep.workout:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OnboardingChoiceList(
+              children: controller.workoutCategories
+                  .map(
+                    (item) => OnboardingChoiceTile(
+                      label: item.label,
+                      isSelected: item.isSelected,
+                      onTap: () =>
+                          controller.selectWorkoutCategory(item.keyName),
+                    ),
+                  )
+                  .toList(),
+            ),
+            if (controller.visibleWorkoutChoices.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              const Text(
+                'Elige una opción',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 16),
+              OnboardingChoiceList(
+                children: controller.visibleWorkoutChoices
+                    .map(
+                      (item) => OnboardingChoiceTile(
+                        label: item.label,
+                        subtitle:
+                            '${item.durationMinutes} min • ${item.calories} kcal aprox.',
+                        isSelected: item.isSelected,
+                        onTap: () =>
+                            controller.selectWorkoutDetail(item.keyName),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Intensidad',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _IntensityOptions(controller: controller),
+            ],
+          ],
+        );
+    }
+  }
 
+  String _titleForStep(RegisterStep step) {
+    switch (step) {
+      case RegisterStep.account:
+        return 'Crea tu cuenta';
+      case RegisterStep.regularity:
+        return '¿Es tu periodo regular?';
+      case RegisterStep.symptoms:
+        return '¿Cuál de estos síntomas has experimentado?';
+      case RegisterStep.workout:
+        return '¿Qué tipo de entrenamiento realizas?';
+    }
+  }
+
+  String _primaryLabelForStep(RegisterStep step) {
+    switch (step) {
+      case RegisterStep.workout:
+        return 'Finalizar';
+      default:
+        return 'Siguiente';
+    }
+  }
+
+  Future<void> _handleContinue(
+    BuildContext context,
+    RegisterController controller,
+  ) async {
+    if (controller.currentStep == RegisterStep.account &&
+        !_accountFormKey.currentState!.validate()) {
+      return;
+    }
+
+    final success = await controller.continueFromCurrentStep();
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bienvenida a CycleFit')),
+      );
+      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
+    }
+  }
+
+  Future<void> _handleSkip(
+    BuildContext context,
+    RegisterController controller,
+  ) async {
+    final wasWorkoutStep = controller.currentStep == RegisterStep.workout;
+    controller.skipCurrentStep();
+    if (!wasWorkoutStep) return;
+
+    final success = await controller.register();
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bienvenida a CycleFit')),
+      );
+      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
+    }
+  }
+
+  void _handleBack(BuildContext context, RegisterController controller) {
+    if (controller.isFirstStep) {
+      Navigator.pop(context);
+      return;
+    }
+    controller.previousStep();
+  }
+
+  Future<void> _selectBirthDate(
+    BuildContext context,
+    RegisterController controller,
+  ) async {
+    final now = DateTime.now();
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: controller.selectedBirthDate ?? DateTime(now.year - 18),
+      firstDate: DateTime(1900),
+      lastDate: now,
     );
 
     if (selectedDate != null) {
@@ -381,21 +240,196 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _selectLastPeriodDate(
-      BuildContext context, RegisterController controller) async {
+    BuildContext context,
+    RegisterController controller,
+  ) async {
     final now = DateTime.now();
-    final firstDate = now.subtract(const Duration(days: 120));
-    final lastDate = now;
-
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: firstDate,
-      lastDate: lastDate,
+      initialDate: controller.selectedLastPeriodDate ?? now,
+      firstDate: now.subtract(const Duration(days: 120)),
+      lastDate: now,
     );
 
     if (selectedDate != null) {
-      controller.lastPeriodController.text =
-          '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}';
+      controller.setSelectedLastPeriodDate(selectedDate);
     }
+  }
+}
+
+class _AccountStep extends StatelessWidget {
+  const _AccountStep({
+    required this.formKey,
+    required this.controller,
+    required this.onBirthDateTap,
+    required this.onLastPeriodTap,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final RegisterController controller;
+  final VoidCallback onBirthDateTap;
+  final VoidCallback onLastPeriodTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Column(
+        children: [
+          _TextInput(
+            controller: controller.nombreController,
+            label: 'Nombre completo',
+            validator: controller.validateNombre,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: 14),
+          _TextInput(
+            controller: controller.emailController,
+            label: 'Correo electrónico',
+            keyboardType: TextInputType.emailAddress,
+            validator: controller.validateEmail,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: 14),
+          _TextInput(
+            controller: controller.passwordController,
+            label: 'Contraseña',
+            obscureText: controller.obscurePassword,
+            validator: controller.validatePassword,
+            textInputAction: TextInputAction.next,
+            suffixIcon: IconButton(
+              icon: Icon(
+                controller.obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              onPressed: controller.togglePasswordVisibility,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _TextInput(
+            controller: controller.confirmPasswordController,
+            label: 'Confirmar contraseña',
+            obscureText: controller.obscureConfirmPassword,
+            validator: controller.validateConfirmPassword,
+            textInputAction: TextInputAction.next,
+            suffixIcon: IconButton(
+              icon: Icon(
+                controller.obscureConfirmPassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+              onPressed: controller.toggleConfirmPasswordVisibility,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _TextInput(
+            controller: controller.birthDateController,
+            label: 'Fecha de nacimiento',
+            readOnly: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Selecciona tu fecha de nacimiento';
+              }
+              return controller.validateBirthDate(value);
+            },
+            onTap: onBirthDateTap,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.calendar_today_outlined),
+              onPressed: onBirthDateTap,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _TextInput(
+            controller: controller.lastPeriodController,
+            label: 'Última menstruación',
+            readOnly: true,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Selecciona tu última menstruación';
+              }
+              return controller.validateLastPeriodDate(value);
+            },
+            onTap: onLastPeriodTap,
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.calendar_today_outlined),
+              onPressed: onLastPeriodTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextInput extends StatelessWidget {
+  const _TextInput({
+    required this.controller,
+    required this.label,
+    this.validator,
+    this.keyboardType,
+    this.textInputAction,
+    this.obscureText = false,
+    this.readOnly = false,
+    this.onTap,
+    this.suffixIcon,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final FormFieldValidator<String>? validator;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final bool obscureText;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final Widget? suffixIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      obscureText: obscureText,
+      readOnly: readOnly,
+      onTap: onTap,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: const Color(0xFFF0F0F0),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFFF668B), width: 1.5),
+        ),
+        suffixIcon: suffixIcon,
+      ),
+    );
+  }
+}
+
+class _IntensityOptions extends StatelessWidget {
+  const _IntensityOptions({required this.controller});
+
+  final RegisterController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return OnboardingChoiceList(
+      children: controller.intensityChoices
+          .map(
+            (intensity) => OnboardingChoiceTile(
+              label: intensity,
+              isSelected: controller.selectedWorkoutIntensity == intensity,
+              onTap: () => controller.selectWorkoutIntensity(intensity),
+            ),
+          )
+          .toList(),
+    );
   }
 }

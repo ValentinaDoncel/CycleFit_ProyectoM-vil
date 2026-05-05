@@ -20,6 +20,10 @@ class FirestoreService {
     return userDoc(uid).collection(FirebasePaths.cycles).doc('current');
   }
 
+  static DocumentReference<Map<String, dynamic>> onboardingDoc(String uid) {
+    return userDoc(uid).collection(FirebasePaths.profile).doc('onboarding');
+  }
+
   static CollectionReference<Map<String, dynamic>> symptomsCollection(String uid) {
     return userDoc(uid).collection(FirebasePaths.symptoms);
   }

@@ -13,7 +13,6 @@ class FirebaseAuthService {
       return existingUser;
     }
 
-    final credential = await instance.signInAnonymously();
-    return credential.user!;
+    throw StateError('No hay usuario autenticado');
   }
 }
