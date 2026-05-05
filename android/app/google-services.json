@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "99988229819",
+    "project_id": "cycle-fit-db",
+    "storage_bucket": "cycle-fit-db.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:99988229819:android:6e5e6bf8609747684ca39e",
+        "android_client_info": {
+          "package_name": "com.valentina.cycle_fit"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "99988229819-holv6s2ebp6elforp7vevs08joja5irc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzZrI2xoya-EPsQSZ59Ej4KIUOnWHURTc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "99988229819-holv6s2ebp6elforp7vevs08joja5irc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "99988229819-s1dkrpnmf7uh24nubfjps9bcpfs08o5s.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cycleFit"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
