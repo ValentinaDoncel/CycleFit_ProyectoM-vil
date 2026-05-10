@@ -29,8 +29,10 @@ class OnboardingStepLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final targetProgress = progress.clamp(0.0, 1.0).toDouble();
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(26, 10, 26, 8),
@@ -70,30 +72,79 @@ class OnboardingStepLayout extends StatelessWidget {
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: progress.clamp(0, 1),
-                  minHeight: 7,
-                  backgroundColor: const Color(0xFFE8E8E8),
-                  color: const Color(0xFFFF668B),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: targetProgress),
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    return LinearProgressIndicator(
+                      value: value,
+                      minHeight: 7,
+                      backgroundColor: const Color(0xFFE8E8E8),
+                      color: const Color(0xFFFF668B),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 46),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 29,
-                  height: 1.32,
-                  fontWeight: FontWeight.w800,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder: (child, animation) {
+                  final offset = Tween<Offset>(
+                    begin: const Offset(0.04, 0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(position: offset, child: child),
+                  );
+                },
+                child: Text(
+                  title,
+                  key: ValueKey(title),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 29,
+                    height: 1.32,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
               Expanded(
                 child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      child,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 260),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final offset = Tween<Offset>(
+                            begin: const Offset(0, 0.04),
+                            end: Offset.zero,
+                          ).animate(animation);
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(title),
+                          child: child,
+                        ),
+                      ),
                       if (errorMessage != null) ...[
                         const SizedBox(height: 18),
                         _ErrorMessage(

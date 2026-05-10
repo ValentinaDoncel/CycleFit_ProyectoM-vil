@@ -148,13 +148,12 @@ class _LoginPageState extends State<LoginPage> {
                                     if (_formKey.currentState!.validate()) {
                                       final success =
                                           await controller.login();
-                                      if (success && mounted) {
-                                        Navigator.pushNamedAndRemoveUntil(
-                                          context,
-                                          '/dashboard',
-                                          (route) => false,
-                                        );
-                                      }
+                                      if (!context.mounted || !success) return;
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/dashboard',
+                                        (route) => false,
+                                      );
                                     }
                                   },
                             style: ElevatedButton.styleFrom(
@@ -185,6 +184,42 @@ class _LoginPageState extends State<LoginPage> {
                                               fontWeight: FontWeight.w600,
                                             ),
                                   ),
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: controller.isLoading
+                                ? null
+                                : () async {
+                                    final success =
+                                        await controller.signInWithGoogle();
+                                    if (!context.mounted || !success) return;
+                                    Navigator.pushNamedAndRemoveUntil(
+                                      context,
+                                      '/dashboard',
+                                      (route) => false,
+                                    );
+                                  },
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: const Icon(Icons.login_rounded),
+                            label: Text(
+                              'Continuar con Google',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelLarge
+                                  ?.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
                           ),
                           const SizedBox(height: 16),
 

@@ -48,6 +48,7 @@ class _RegisterPageState extends State<RegisterPage> {
           controller: controller,
           onBirthDateTap: () => _selectBirthDate(context, controller),
           onLastPeriodTap: () => _selectLastPeriodDate(context, controller),
+          onGooglePressed: () => _handleGoogleRegister(context, controller),
         );
       case RegisterStep.regularity:
         return OnboardingChoiceList(
@@ -62,40 +63,78 @@ class _RegisterPageState extends State<RegisterPage> {
               .toList(),
         );
       case RegisterStep.symptoms:
+        return OnboardingChoiceWrap(
+          children: controller.symptomChoices
+              .map(
+                (item) => OnboardingChoiceTile(
+                  label: item.label,
+                  isSelected: item.isSelected,
+                  onTap: () => controller.toggleSymptom(item.keyName),
+                  compact: true,
+                ),
+              )
+              .toList(),
+        );
+      case RegisterStep.mood:
+        return OnboardingChoiceWrap(
+          children: controller.moodOptions
+              .map(
+                (item) => OnboardingChoiceTile(
+                  label: item.label,
+                  isSelected: item.isSelected,
+                  onTap: () => controller.selectMood(item.keyName),
+                  compact: true,
+                  leading: Text(
+                    _moodFace(item.keyName),
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                  selectedColor: const Color(0xFF7A0A4F),
+                  selectedBackgroundColor: const Color(0xFFF2E5EE),
+                ),
+              )
+              .toList(),
+        );
+      case RegisterStep.energy:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            OnboardingChoiceList(
-              children: controller.symptomChoices
-                  .map(
-                    (item) => OnboardingChoiceTile(
-                      label: item.label,
-                      isSelected: item.isSelected,
-                      onTap: () => controller.toggleSymptom(item.keyName),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 28),
-            const Text(
-              '¿Cómo te sientes hoy?',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OnboardingChoiceList(
+            OnboardingChoiceWrap(
               children: controller.energyOptions
                   .map(
                     (item) => OnboardingChoiceTile(
                       label: item.label,
                       isSelected: item.isSelected,
                       onTap: () => controller.selectEnergy(item.keyName),
+                      compact: true,
+                      selectedColor: _energyColor(item.keyName),
+                      selectedBackgroundColor:
+                          _energyColor(item.keyName).withValues(alpha: 0.14),
+                      leading: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: _energyColor(item.keyName),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     ),
                   )
                   .toList(),
+            ),
+            const SizedBox(height: 18),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: controller.energyKey == null
+                  ? const SizedBox.shrink()
+                  : Text(
+                      'Perfecto, ajustaremos tus recomendaciones a ese nivel.',
+                      key: ValueKey(controller.energyKey),
+                      style: const TextStyle(
+                        color: Color(0xFF7E6E73),
+                        fontSize: 15,
+                        height: 1.35,
+                      ),
+                    ),
             ),
           ],
         );
@@ -103,57 +142,97 @@ class _RegisterPageState extends State<RegisterPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            OnboardingChoiceList(
+            OnboardingChoiceWrap(
               children: controller.workoutCategories
                   .map(
                     (item) => OnboardingChoiceTile(
                       label: item.label,
                       isSelected: item.isSelected,
                       onTap: () =>
-                          controller.selectWorkoutCategory(item.keyName),
+                          controller.toggleWorkoutCategory(item.keyName),
+                      compact: true,
                     ),
                   )
                   .toList(),
             ),
-            if (controller.visibleWorkoutChoices.isNotEmpty) ...[
-              const SizedBox(height: 28),
-              const Text(
-                'Elige una opción',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 16),
-              OnboardingChoiceList(
-                children: controller.visibleWorkoutChoices
-                    .map(
-                      (item) => OnboardingChoiceTile(
-                        label: item.label,
-                        subtitle:
-                            '${item.durationMinutes} min • ${item.calories} kcal aprox.',
-                        isSelected: item.isSelected,
-                        onTap: () =>
-                            controller.selectWorkoutDetail(item.keyName),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 28),
-              const Text(
-                'Intensidad',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _IntensityOptions(controller: controller),
-            ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: controller.visibleWorkoutCategories.isEmpty
+                  ? const SizedBox.shrink()
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 28),
+                        const Text(
+                          'Elige una opción',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        for (final category
+                            in controller.visibleWorkoutCategories) ...[
+                          _WorkoutCategorySection(
+                            title: category.label,
+                            choices: category.items,
+                            onToggle: controller.toggleWorkoutDetail,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        const SizedBox(height: 28),
+                        const Text(
+                          'Intensidad',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _IntensityOptions(controller: controller),
+                      ],
+                    ),
+            ),
           ],
         );
+    }
+  }
+
+  String _moodFace(String key) {
+    switch (key) {
+      case 'tranquila':
+        return '🙂';
+      case 'feliz':
+        return '😄';
+      case 'sensible':
+        return '🥹';
+      case 'ansiosa':
+        return '😟';
+      case 'irritable':
+        return '😤';
+      default:
+        return '🙂';
+    }
+  }
+
+  Color _energyColor(String key) {
+    switch (key) {
+      case 'cansada':
+        return const Color(0xFF8C8C8C);
+      case 'regular':
+        return const Color(0xFF64B5F6);
+      case 'normal':
+        return const Color(0xFF76C893);
+      case 'bien':
+        return const Color(0xFFFFB74D);
+      case 'excelente':
+        return const Color(0xFFFF5C8A);
+      default:
+        return const Color(0xFF8C8C8C);
     }
   }
 
@@ -164,7 +243,11 @@ class _RegisterPageState extends State<RegisterPage> {
       case RegisterStep.regularity:
         return '¿Es tu periodo regular?';
       case RegisterStep.symptoms:
-        return '¿Cuál de estos síntomas has experimentado?';
+        return '¿Qué síntomas has notado?';
+      case RegisterStep.mood:
+        return '¿Cuál es tu estado de ánimo?';
+      case RegisterStep.energy:
+        return '¿Cómo está tu energía?';
       case RegisterStep.workout:
         return '¿Qué tipo de entrenamiento realizas?';
     }
@@ -191,9 +274,11 @@ class _RegisterPageState extends State<RegisterPage> {
     final success = await controller.continueFromCurrentStep();
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bienvenida a CycleFit')),
+        const SnackBar(
+          content: Text('Te enviamos un correo para confirmar tu cuenta'),
+        ),
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
     }
   }
 
@@ -206,6 +291,21 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!wasWorkoutStep) return;
 
     final success = await controller.register();
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Te enviamos un correo para confirmar tu cuenta'),
+        ),
+      );
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+    }
+  }
+
+  Future<void> _handleGoogleRegister(
+    BuildContext context,
+    RegisterController controller,
+  ) async {
+    final success = await controller.signInWithGoogle();
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Bienvenida a CycleFit')),
@@ -263,12 +363,14 @@ class _AccountStep extends StatelessWidget {
     required this.controller,
     required this.onBirthDateTap,
     required this.onLastPeriodTap,
+    required this.onGooglePressed,
   });
 
   final GlobalKey<FormState> formKey;
   final RegisterController controller;
   final VoidCallback onBirthDateTap;
   final VoidCallback onLastPeriodTap;
+  final VoidCallback onGooglePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +458,18 @@ class _AccountStep extends StatelessWidget {
               onPressed: onLastPeriodTap,
             ),
           ),
+          const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: controller.isLoading ? null : onGooglePressed,
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('Registrarme con Google'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -430,6 +544,48 @@ class _IntensityOptions extends StatelessWidget {
             ),
           )
           .toList(),
+    );
+  }
+}
+
+class _WorkoutCategorySection extends StatelessWidget {
+  const _WorkoutCategorySection({
+    required this.title,
+    required this.choices,
+    required this.onToggle,
+  });
+
+  final String title;
+  final List<RegisterWorkoutChoice> choices;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: Color(0xFF7A0A4F),
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        OnboardingChoiceWrap(
+          children: choices
+              .map(
+                (item) => OnboardingChoiceTile(
+                  label: item.label,
+                  isSelected: item.isSelected,
+                  onTap: () => onToggle(item.keyName),
+                  compact: true,
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 }

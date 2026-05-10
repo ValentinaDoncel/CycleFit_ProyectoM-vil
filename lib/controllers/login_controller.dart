@@ -89,6 +89,43 @@ class LoginController extends ChangeNotifier {
     }
   }
 
+  Future<bool> signInWithGoogle() async {
+    _errorMessage = null;
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final user = await _authService.signInWithGoogle();
+      _isLoading = false;
+
+      if (user != null) {
+        _currentUser = user;
+        notifyListeners();
+        return true;
+      }
+
+      _errorMessage = 'No se pudo iniciar sesión con Google';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> resendVerificationEmail() async {
+    try {
+      await _authService.sendEmailVerification();
+      _errorMessage = null;
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Error al enviar correo de confirmación';
+      notifyListeners();
+    }
+  }
+
   Future<void> requestPasswordReset(String email) async {
     try {
       await _authService.sendPasswordResetEmail(email);

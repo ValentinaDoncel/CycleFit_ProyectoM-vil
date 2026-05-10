@@ -380,7 +380,9 @@ class _RecommendationCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: tip.tint,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: tip.sectionColor.withOpacity(0.45)),
+        border: Border.all(
+          color: tip.sectionColor.withValues(alpha: 0.45),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -9,6 +9,8 @@ class UserModel {
   final DateTime? ultimaPeriodo;
   final String? periodoRegular;
   final String? notas;
+  final bool emailVerificado;
+  final String proveedorAuth;
   final DateTime fechaRegistro;
 
   UserModel({
@@ -20,6 +22,8 @@ class UserModel {
     this.ultimaPeriodo,
     this.periodoRegular,
     this.notas,
+    this.emailVerificado = false,
+    this.proveedorAuth = 'password',
     DateTime? fechaRegistro,
   }) : fechaRegistro = fechaRegistro ?? DateTime.now();
 
@@ -38,6 +42,8 @@ class UserModel {
           : null,
       periodoRegular: json['periodoRegular'] as String?,
       notas: json['notas'] as String?,
+      emailVerificado: json['emailVerificado'] as bool? ?? false,
+      proveedorAuth: json['proveedorAuth'] as String? ?? 'password',
       fechaRegistro: json['fechaRegistro'] != null
           ? (json['fechaRegistro'] as Timestamp).toDate()
           : DateTime.now(),
@@ -55,6 +61,8 @@ class UserModel {
       'ultimaPeriodo': ultimaPeriodo != null ? Timestamp.fromDate(ultimaPeriodo!) : null,
       'periodoRegular': periodoRegular,
       'notas': notas,
+      'emailVerificado': emailVerificado,
+      'proveedorAuth': proveedorAuth,
       'fechaRegistro': Timestamp.fromDate(fechaRegistro),
     };
   }
@@ -69,6 +77,8 @@ class UserModel {
     DateTime? ultimaPeriodo,
     String? periodoRegular,
     String? notas,
+    bool? emailVerificado,
+    String? proveedorAuth,
     DateTime? fechaRegistro,
   }) {
     return UserModel(
@@ -80,6 +90,8 @@ class UserModel {
       ultimaPeriodo: ultimaPeriodo ?? this.ultimaPeriodo,
       periodoRegular: periodoRegular ?? this.periodoRegular,
       notas: notas ?? this.notas,
+      emailVerificado: emailVerificado ?? this.emailVerificado,
+      proveedorAuth: proveedorAuth ?? this.proveedorAuth,
       fechaRegistro: fechaRegistro ?? this.fechaRegistro,
     );
   }

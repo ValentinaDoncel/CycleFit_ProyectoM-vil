@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:cycle_fit/controllers/app_controller.dart';
 import 'package:cycle_fit/core/services/firebase/firebase_initializer.dart';
 import 'package:cycle_fit/core/services/auth/auth_service.dart';
 import 'package:cycle_fit/core/theme/app_theme.dart';
+import 'package:cycle_fit/core/auth/auth_guard.dart';
 import 'package:cycle_fit/views/auth/login_page.dart';
 import 'package:cycle_fit/views/auth/register_page.dart';
 import 'package:cycle_fit/views/dashboard/dashboard_page.dart';
@@ -31,7 +30,6 @@ class _CycleFitAppState extends State<CycleFitApp> {
   void initState() {
     super.initState();
     _controller = AppController();
-    unawaited(_controller.initialize());
   }
 
   @override
@@ -63,9 +61,23 @@ class _CycleFitAppState extends State<CycleFitApp> {
               );
             }
 
-            // Si hay usuario autenticado, mostrar el dashboard
             if (snapshot.hasData && snapshot.data != null) {
-              return DashboardPage(controller: _controller);
+              return FutureBuilder<bool>(
+                future: _authService.hasValidSessionToken(),
+                builder: (context, tokenSnapshot) {
+                  if (tokenSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (tokenSnapshot.data == true) {
+                    return DashboardPage(controller: _controller);
+                  }
+
+                  return const LoginPage();
+                },
+              );
             }
 
             // Si no hay usuario, mostrar login
@@ -75,7 +87,9 @@ class _CycleFitAppState extends State<CycleFitApp> {
         routes: {
           '/login': (context) => const LoginPage(),
           '/register': (context) => const RegisterPage(),
-          '/dashboard': (context) => DashboardPage(controller: _controller),
+          '/dashboard': (context) => AuthGuard(
+                child: DashboardPage(controller: _controller),
+              ),
         },
       ),
     );

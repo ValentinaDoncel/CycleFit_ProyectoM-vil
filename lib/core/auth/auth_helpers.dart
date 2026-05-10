@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cycle_fit/core/services/auth/auth_service.dart';
+import 'package:cycle_fit/models/user_model.dart';
 
 /// Extensión para facilitarlogout desde cualquier contexto
 extension AuthLogout on BuildContext {
@@ -43,7 +44,7 @@ extension AuthLogout on BuildContext {
   bool get isAuthenticated => AuthService().isLoggedIn;
 
   /// Obtiene el usuario actual
-  get currentUser => AuthService().currentUser;
+  UserModel? get currentUser => AuthService().currentUser;
 }
 
 /// Utilidades para mostrar diálogos de autenticación

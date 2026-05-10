@@ -11,7 +11,7 @@ import 'package:cycle_fit/widgets/app_shell.dart';
 import 'package:cycle_fit/widgets/bottom_nav_bar.dart';
 import 'package:flutter/material.dart';
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({
     super.key,
     required this.controller,
@@ -20,10 +20,22 @@ class DashboardPage extends StatelessWidget {
   final AppController controller;
 
   @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.initialize();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       builder: (context, _) {
+        final controller = widget.controller;
         return AppShell(
           bottomNavigationBar: BottomNavBar(controller: controller),
           body: controller.isInitializing
@@ -35,6 +47,8 @@ class DashboardPage extends StatelessWidget {
   }
 
   Widget _bodyForTab(AppTab tab) {
+    final controller = widget.controller;
+
     switch (tab) {
       case AppTab.home:
         return HomePage(controller: controller);

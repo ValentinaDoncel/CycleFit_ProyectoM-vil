@@ -8,7 +8,7 @@ import 'package:cycle_fit/models/app_models.dart';
 import 'package:cycle_fit/models/user_model.dart';
 import 'package:flutter/material.dart';
 
-enum RegisterStep { account, regularity, symptoms, workout }
+enum RegisterStep { account, regularity, symptoms, mood, energy, workout }
 
 class RegisterController extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -37,10 +37,11 @@ class RegisterController extends ChangeNotifier {
   DateTime? _selectedBirthDate;
   DateTime? _selectedLastPeriodDate;
   String? _periodRegularityKey;
+  String? _moodKey;
   String? _energyKey;
   final Set<String> _selectedSymptomKeys = {};
-  String? _selectedWorkoutCategoryKey;
-  String? _selectedWorkoutDetailKey;
+  final Set<String> _selectedWorkoutCategoryKeys = {};
+  final Set<String> _selectedWorkoutDetailKeys = {};
   String _selectedWorkoutIntensity = 'Media';
   bool _skipSymptoms = false;
   bool _skipWorkout = false;
@@ -54,9 +55,12 @@ class RegisterController extends ChangeNotifier {
   DateTime? get selectedBirthDate => _selectedBirthDate;
   DateTime? get selectedLastPeriodDate => _selectedLastPeriodDate;
   String? get periodRegularityKey => _periodRegularityKey;
+  String? get moodKey => _moodKey;
   String? get energyKey => _energyKey;
-  String? get selectedWorkoutCategoryKey => _selectedWorkoutCategoryKey;
-  String? get selectedWorkoutDetailKey => _selectedWorkoutDetailKey;
+  Set<String> get selectedWorkoutCategoryKeys =>
+      Set.unmodifiable(_selectedWorkoutCategoryKeys);
+  Set<String> get selectedWorkoutDetailKeys =>
+      Set.unmodifiable(_selectedWorkoutDetailKeys);
   String get selectedWorkoutIntensity => _selectedWorkoutIntensity;
   bool get skipSymptoms => _skipSymptoms;
   bool get skipWorkout => _skipWorkout;
@@ -66,7 +70,8 @@ class RegisterController extends ChangeNotifier {
   double get progress => (stepIndex + 1) / totalSteps;
   bool get isFirstStep => _currentStep == RegisterStep.account;
   bool get canSkipCurrentStep =>
-      _currentStep == RegisterStep.symptoms || _currentStep == RegisterStep.workout;
+      _currentStep == RegisterStep.symptoms ||
+      _currentStep == RegisterStep.workout;
 
   List<RegisterChoice> get regularityOptions => _regularityCatalog
       .map(
@@ -86,27 +91,35 @@ class RegisterController extends ChangeNotifier {
       .map((item) => item.copyWith(isSelected: item.keyName == _energyKey))
       .toList();
 
+  List<RegisterChoice> get moodOptions => _moodCatalog
+      .map((item) => item.copyWith(isSelected: item.keyName == _moodKey))
+      .toList();
+
   List<RegisterWorkoutCategory> get workoutCategories => _workoutCategories
       .map(
         (item) => item.copyWith(
-          isSelected: item.keyName == _selectedWorkoutCategoryKey,
+          isSelected: _selectedWorkoutCategoryKeys.contains(item.keyName),
         ),
       )
       .toList();
 
-  List<RegisterWorkoutChoice> get visibleWorkoutChoices {
-    if (_selectedWorkoutCategoryKey == null) return const [];
-    final category = _workoutCategories.firstWhere(
-      (item) => item.keyName == _selectedWorkoutCategoryKey,
-    );
-    return category.items
-        .map(
-          (item) => item.copyWith(
-            isSelected: item.keyName == _selectedWorkoutDetailKey,
-          ),
-        )
-        .toList();
-  }
+  List<RegisterWorkoutCategory> get visibleWorkoutCategories =>
+      _workoutCategories
+          .where((item) => _selectedWorkoutCategoryKeys.contains(item.keyName))
+          .map(
+            (category) => category.copyWith(
+              isSelected: true,
+              items: category.items
+                  .map(
+                    (item) => item.copyWith(
+                      isSelected:
+                          _selectedWorkoutDetailKeys.contains(item.keyName),
+                    ),
+                  )
+                  .toList(),
+            ),
+          )
+          .toList();
 
   List<String> get intensityChoices => const ['Baja', 'Media', 'Alta'];
 
@@ -151,6 +164,11 @@ class RegisterController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void selectMood(String key) {
+    _moodKey = key;
+    notifyListeners();
+  }
+
   void toggleSymptom(String key) {
     if (_selectedSymptomKeys.contains(key)) {
       _selectedSymptomKeys.remove(key);
@@ -160,15 +178,27 @@ class RegisterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectWorkoutCategory(String key) {
-    if (_selectedWorkoutCategoryKey == key) return;
-    _selectedWorkoutCategoryKey = key;
-    _selectedWorkoutDetailKey = null;
+  void toggleWorkoutCategory(String key) {
+    if (_selectedWorkoutCategoryKeys.contains(key)) {
+      _selectedWorkoutCategoryKeys.remove(key);
+      final category = _workoutCategories.firstWhere(
+        (item) => item.keyName == key,
+      );
+      for (final workout in category.items) {
+        _selectedWorkoutDetailKeys.remove(workout.keyName);
+      }
+    } else {
+      _selectedWorkoutCategoryKeys.add(key);
+    }
     notifyListeners();
   }
 
-  void selectWorkoutDetail(String key) {
-    _selectedWorkoutDetailKey = key;
+  void toggleWorkoutDetail(String key) {
+    if (_selectedWorkoutDetailKeys.contains(key)) {
+      _selectedWorkoutDetailKeys.remove(key);
+    } else {
+      _selectedWorkoutDetailKeys.add(key);
+    }
     notifyListeners();
   }
 
@@ -188,6 +218,7 @@ class RegisterController extends ChangeNotifier {
     if (_currentStep == RegisterStep.symptoms) {
       _skipSymptoms = true;
       _selectedSymptomKeys.clear();
+      _moodKey = null;
       _energyKey = null;
       _currentStep = RegisterStep.workout;
     } else if (_currentStep == RegisterStep.workout) {
@@ -222,8 +253,21 @@ class RegisterController extends ChangeNotifier {
           notifyListeners();
           return false;
         }
+        _currentStep = RegisterStep.mood;
+        notifyListeners();
+        return false;
+      case RegisterStep.mood:
+        if (_moodKey == null) {
+          _errorMessage = 'Selecciona tu estado de ánimo';
+          notifyListeners();
+          return false;
+        }
+        _currentStep = RegisterStep.energy;
+        notifyListeners();
+        return false;
+      case RegisterStep.energy:
         if (_energyKey == null) {
-          _errorMessage = 'Selecciona cómo te sientes hoy';
+          _errorMessage = 'Selecciona tu nivel de energía';
           notifyListeners();
           return false;
         }
@@ -232,10 +276,9 @@ class RegisterController extends ChangeNotifier {
         return false;
       case RegisterStep.workout:
         _skipWorkout = false;
-        if (_selectedWorkoutCategoryKey == null ||
-            _selectedWorkoutDetailKey == null) {
-          _errorMessage =
-              'Selecciona una categoría y una opción de entrenamiento';
+        if (_selectedWorkoutCategoryKeys.isEmpty ||
+            _selectedWorkoutDetailKeys.isEmpty) {
+          _errorMessage = 'Selecciona al menos una categoría y un ejercicio';
           notifyListeners();
           return false;
         }
@@ -295,6 +338,29 @@ class RegisterController extends ChangeNotifier {
         userId: user.id,
         lastPeriodDate: lastPeriodDate,
       );
+      _newUser = user;
+      await _authService.logout();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final user = await _authService.signInWithGoogle();
+      if (user == null) {
+        _errorMessage = 'No se pudo registrar con Google';
+        return false;
+      }
       _newUser = user;
       return true;
     } catch (e) {
@@ -364,25 +430,26 @@ class RegisterController extends ChangeNotifier {
         SymptomRecordData(
           date: _today,
           energyLevel: _energyValueForKey(_energyKey),
-          moodKeys: _energyKey == null ? const [] : [_energyKey!],
+          moodKeys: _moodKey == null ? const [] : [_moodKey!],
           symptomKeys: _selectedSymptomKeys.toList()..sort(),
         ),
       );
     }
 
-    if (!_skipWorkout && _selectedWorkoutDetailKey != null) {
-      final workout = _selectedWorkout!;
-      await _workoutsService.addWorkout(
-        userId,
-        WorkoutData(
-          id: '',
-          title: workout.label,
-          intensity: _selectedWorkoutIntensity,
-          durationMinutes: workout.durationMinutes,
-          calories: workout.calories,
-          date: _today,
-        ),
-      );
+    if (!_skipWorkout && _selectedWorkoutDetailKeys.isNotEmpty) {
+      for (final workout in _selectedWorkouts) {
+        await _workoutsService.addWorkout(
+          userId,
+          WorkoutData(
+            id: '',
+            title: workout.label,
+            intensity: _selectedWorkoutIntensity,
+            durationMinutes: workout.durationMinutes,
+            calories: workout.calories,
+            date: _today,
+          ),
+        );
+      }
     }
 
     await _onboardingService.saveStatus(
@@ -394,15 +461,49 @@ class RegisterController extends ChangeNotifier {
         skippedWorkout: _skipWorkout,
       ),
     );
+
+    await _validateSavedOnboardingRecords(userId);
   }
 
-  RegisterWorkoutChoice? get _selectedWorkout {
-    for (final category in _workoutCategories) {
-      for (final item in category.items) {
-        if (item.keyName == _selectedWorkoutDetailKey) return item;
+  Future<void> _validateSavedOnboardingRecords(String userId) async {
+    final onboardingStatus = await _onboardingService.getStatus(userId);
+    if (onboardingStatus.skippedSymptoms != _skipSymptoms ||
+        onboardingStatus.skippedWorkout != _skipWorkout) {
+      throw Exception('No se pudo validar el guardado del onboarding');
+    }
+
+    final cycle = await _cycleService.getCycle(userId);
+    if (cycle.periodStartDate.year < 1900) {
+      throw Exception('No se pudo validar el ciclo guardado');
+    }
+
+    if (!_skipSymptoms) {
+      final symptoms = await _symptomsService.getRecordForDay(userId, _today);
+      if (symptoms == null) {
+        throw Exception('No se pudo validar el registro de síntomas');
       }
     }
-    return null;
+
+    if (!_skipWorkout && _selectedWorkoutDetailKeys.isNotEmpty) {
+      final workouts = await _workoutsService.getWorkouts(userId);
+      final selectedTitles = _selectedWorkouts.map((item) => item.label).toSet();
+      final savedTitles = workouts.map((item) => item.title).toSet();
+      if (!selectedTitles.every(savedTitles.contains)) {
+        throw Exception('No se pudo validar el entrenamiento guardado');
+      }
+    }
+  }
+
+  List<RegisterWorkoutChoice> get _selectedWorkouts {
+    final selected = <RegisterWorkoutChoice>[];
+    for (final category in _workoutCategories) {
+      for (final item in category.items) {
+        if (_selectedWorkoutDetailKeys.contains(item.keyName)) {
+          selected.add(item);
+        }
+      }
+    }
+    return selected;
   }
 
   String _formatUiDate(DateTime date) =>
@@ -454,11 +555,19 @@ class RegisterController extends ChangeNotifier {
   ];
 
   static const List<RegisterChoice> _energyCatalog = [
-    RegisterChoice(keyName: 'excelente', label: 'Excelente'),
-    RegisterChoice(keyName: 'bien', label: 'Bien'),
-    RegisterChoice(keyName: 'normal', label: 'Normal'),
-    RegisterChoice(keyName: 'regular', label: 'Regular'),
-    RegisterChoice(keyName: 'cansada', label: 'Cansada'),
+    RegisterChoice(keyName: 'cansada', label: 'Neutra'),
+    RegisterChoice(keyName: 'regular', label: 'Baja'),
+    RegisterChoice(keyName: 'normal', label: 'Media'),
+    RegisterChoice(keyName: 'bien', label: 'Alta'),
+    RegisterChoice(keyName: 'excelente', label: 'Eufórica'),
+  ];
+
+  static const List<RegisterChoice> _moodCatalog = [
+    RegisterChoice(keyName: 'tranquila', label: 'Tranquila'),
+    RegisterChoice(keyName: 'feliz', label: 'Feliz'),
+    RegisterChoice(keyName: 'sensible', label: 'Sensible'),
+    RegisterChoice(keyName: 'ansiosa', label: 'Ansiosa'),
+    RegisterChoice(keyName: 'irritable', label: 'Irritable'),
   ];
 
   static const List<RegisterChoice> _symptomCatalog = [
@@ -589,11 +698,14 @@ class RegisterWorkoutCategory {
   final List<RegisterWorkoutChoice> items;
   final bool isSelected;
 
-  RegisterWorkoutCategory copyWith({bool? isSelected}) {
+  RegisterWorkoutCategory copyWith({
+    bool? isSelected,
+    List<RegisterWorkoutChoice>? items,
+  }) {
     return RegisterWorkoutCategory(
       keyName: keyName,
       label: label,
-      items: items,
+      items: items ?? this.items,
       isSelected: isSelected ?? this.isSelected,
     );
   }

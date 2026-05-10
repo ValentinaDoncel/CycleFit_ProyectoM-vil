@@ -70,7 +70,7 @@ class TipsPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -235,7 +235,7 @@ class _TipsHeroCard extends StatelessWidget {
                   width: isPreview ? 38 : 42,
                   height: isPreview ? 38 : 42,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.18),
+                    color: Colors.white.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -249,7 +249,7 @@ class _TipsHeroCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.24),
+                      color: Colors.white.withValues(alpha: 0.24),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(

@@ -93,10 +93,13 @@ class AppController extends ChangeNotifier {
   int get favoriteTipsCount => _favoriteTipIds.length;
 
   Future<void> initialize() async {
-    if (!_isInitializing) return;
-
     try {
       final user = await FirebaseAuthService.ensureSignedIn();
+      if (_userId == user.uid) return;
+
+      _isInitializing = true;
+      notifyListeners();
+
       _userId = user.uid;
 
       final results = await Future.wait([

@@ -15,24 +15,32 @@ class AuthGuard extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = AuthService();
 
-    // Si el usuario está autenticado, mostrar la pantalla
-    if (auth.isLoggedIn) {
-      return child;
-    }
+    return FutureBuilder<bool>(
+      future: auth.hasValidSessionToken(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    // Si no está autenticado, redirigir al login
-    Future.microtask(() {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/login',
-        (route) => false,
-      );
-    });
+        if (snapshot.data == true) {
+          return child;
+        }
 
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login',
+            (route) => false,
+          );
+        });
+
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      },
     );
   }
 }
