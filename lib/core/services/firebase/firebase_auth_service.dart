@@ -10,10 +10,17 @@ class FirebaseAuthService {
   static Future<User> ensureSignedIn() async {
     final existingUser = currentUser;
     if (existingUser != null) {
+      final token = await existingUser.getIdTokenResult();
+      final expiration = token.expirationTime;
+      if (token.token == null ||
+          token.token!.isEmpty ||
+          expiration == null ||
+          expiration.isBefore(DateTime.now())) {
+        await existingUser.getIdTokenResult(true);
+      }
       return existingUser;
     }
 
-    final credential = await instance.signInAnonymously();
-    return credential.user!;
+    throw StateError('No hay usuario autenticado');
   }
 }
