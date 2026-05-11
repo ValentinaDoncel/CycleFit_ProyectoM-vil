@@ -142,7 +142,7 @@ class ExercisePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Estás en fase ovulatoria. Tu fuerza y energía están en su pico máximo. Ideal para entrenamientos HIIT o de alta intensidad.',
+                        controller.exerciseRecommendationText,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],

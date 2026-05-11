@@ -67,6 +67,27 @@ class TipsPage extends StatelessWidget {
                     ],
                   ),
                 ),
+                IconButton(
+                  onPressed: controller.isRefreshingTips
+                      ? null
+                      : () {
+                          controller.refreshAiTips();
+                        },
+                  icon: controller.isRefreshingTips
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
@@ -133,6 +154,33 @@ class TipsPage extends StatelessWidget {
               ],
             ),
           ),
+          if (controller.tipsError != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(horizontal, 14, horizontal, 0),
+              child: SurfaceCard(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'No pudimos actualizar los tips con IA en este momento. Te mostramos recomendaciones base mientras tanto.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.text,
+                              height: 1.55,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 0),
             child: Row(

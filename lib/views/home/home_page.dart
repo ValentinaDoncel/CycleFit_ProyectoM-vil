@@ -31,7 +31,7 @@ class HomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hola, María',
+                      'Hola, ${controller.profileFirstName}',
                       style: Theme.of(context).textTheme.headlineLarge,
                     ),
                     const SizedBox(height: 4),
@@ -77,23 +77,22 @@ class HomePage extends StatelessWidget {
                         children: [
                           Text(
                             'Fase actual',
-                            style:
-                                Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppColors.muted,
+                                  fontWeight: FontWeight.w500,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.brightness_3_outlined,
+                              Icon(
+                                controller.currentPhaseIcon,
                                 color: AppColors.primary,
                                 size: 28,
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Ovulatoria',
+                                controller.currentPhaseLabel,
                                 style:
                                     Theme.of(context).textTheme.headlineMedium,
                               ),
@@ -113,7 +112,7 @@ class HomePage extends StatelessWidget {
                         color: const Color(0xFFF8EEFF),
                       ),
                       child: Text(
-                        'Día 14',
+                        'Día ${controller.currentCycleDay}',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: const Color(0xFFB04FFB),
                             ),
@@ -131,7 +130,7 @@ class HomePage extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: FractionallySizedBox(
-                      widthFactor: 0.5,
+                      widthFactor: controller.cycleProgress.clamp(0.0, 1.0),
                       child: Container(
                         decoration: BoxDecoration(
                           color: AppColors.primary,
@@ -142,18 +141,18 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 42),
-                const Row(
+                Row(
                   children: [
                     Expanded(
                       child: _MetricBlock(
                         title: 'Duración ciclo',
-                        value: '28 días',
+                        value: controller.cycleLengthLabel,
                       ),
                     ),
                     Expanded(
                       child: _MetricBlock(
                         title: 'Próximo período',
-                        value: 'En 14 días',
+                        value: controller.nextPeriodCountdownLabel,
                       ),
                     ),
                   ],
@@ -206,7 +205,7 @@ class HomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Durante la fase ovulatoria, tu energía está en su punto máximo. Es un excelente momento para entrenamientos de alta intensidad.',
+                        controller.homeRecommendationText,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 20),

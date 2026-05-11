@@ -71,8 +71,32 @@ class _TipsRecommendationsPageState extends State<TipsRecommendationsPage> {
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontSize: 18,
                               ),
-                        ),
+                          ),
                       ),
+                      IconButton(
+                        onPressed: widget.controller.isRefreshingTips
+                            ? null
+                            : () {
+                                widget.controller.refreshAiTips();
+                              },
+                        icon: widget.controller.isRefreshingTips
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.primary,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.refresh_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 10),
                       Text(
                         '${widget.controller.favoriteTipsCount} favoritos',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -92,6 +116,17 @@ class _TipsRecommendationsPageState extends State<TipsRecommendationsPage> {
                     },
                   ),
                   const SizedBox(height: 22),
+                  if (widget.controller.isRefreshingTips)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                        'Actualizando recomendaciones con Gemini...',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppColors.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
                   if (grouped.isEmpty)
                     _EmptyFavoritesCard(
                       onShowAll: () {

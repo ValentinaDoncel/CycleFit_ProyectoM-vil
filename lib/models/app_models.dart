@@ -418,3 +418,92 @@ class TipRecommendationModel {
     );
   }
 }
+
+class AiTipDraft {
+  const AiTipDraft({
+    required this.section,
+    required this.title,
+    required this.description,
+  });
+
+  final String section;
+  final String title;
+  final String description;
+
+  factory AiTipDraft.fromMap(Map<String, dynamic> map) {
+    return AiTipDraft(
+      section: map['section'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+    );
+  }
+}
+
+class AiInsightDraft {
+  const AiInsightDraft({
+    required this.title,
+    required this.description,
+    required this.progress,
+  });
+
+  final String title;
+  final String description;
+  final double progress;
+
+  factory AiInsightDraft.fromMap(Map<String, dynamic> map) {
+    return AiInsightDraft(
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      progress: (map['progress'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class AiHeroDraft {
+  const AiHeroDraft({
+    required this.id,
+    required this.category,
+    required this.message,
+  });
+
+  final String id;
+  final String category;
+  final String message;
+
+  factory AiHeroDraft.fromMap(Map<String, dynamic> map) {
+    return AiHeroDraft(
+      id: map['id'] as String? ?? '',
+      category: map['category'] as String? ?? '',
+      message: map['message'] as String? ?? '',
+    );
+  }
+}
+
+class AiTipsPayload {
+  const AiTipsPayload({
+    required this.heroes,
+    required this.insights,
+    required this.recommendations,
+  });
+
+  final List<AiHeroDraft> heroes;
+  final List<AiInsightDraft> insights;
+  final List<AiTipDraft> recommendations;
+
+  factory AiTipsPayload.fromMap(Map<String, dynamic> map) {
+    return AiTipsPayload(
+      heroes: (map['heroes'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => AiHeroDraft.fromMap(Map<String, dynamic>.from(item)))
+          .toList(),
+      insights: (map['insights'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => AiInsightDraft.fromMap(Map<String, dynamic>.from(item)))
+          .toList(),
+      recommendations: (map['recommendations'] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => AiTipDraft.fromMap(Map<String, dynamic>.from(item)))
+          .toList(),
+    );
+  }
+}

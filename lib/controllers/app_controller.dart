@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cycle_fit/core/services/ai/gemini_tips_service.dart';
 import 'package:cycle_fit/core/services/firebase/cycle_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/firebase_auth_service.dart';
 import 'package:cycle_fit/core/services/firebase/profile_firestore_service.dart';
@@ -15,15 +16,18 @@ class AppController extends ChangeNotifier {
     CycleFirestoreService? cycleService,
     SymptomsFirestoreService? symptomsService,
     WorkoutsFirestoreService? workoutsService,
+    GeminiTipsService? geminiTipsService,
   })  : _profileService = profileService ?? const ProfileFirestoreService(),
         _cycleService = cycleService ?? const CycleFirestoreService(),
         _symptomsService = symptomsService ?? const SymptomsFirestoreService(),
-        _workoutsService = workoutsService ?? const WorkoutsFirestoreService();
+        _workoutsService = workoutsService ?? const WorkoutsFirestoreService(),
+        _geminiTipsService = geminiTipsService ?? const GeminiTipsService();
 
   final ProfileFirestoreService _profileService;
   final CycleFirestoreService _cycleService;
   final SymptomsFirestoreService _symptomsService;
   final WorkoutsFirestoreService _workoutsService;
+  final GeminiTipsService _geminiTipsService;
 
   AppTab _selectedTab = AppTab.home;
   final DateTime _today = _currentDateOnly();
@@ -39,12 +43,17 @@ class AppController extends ChangeNotifier {
   String _tipsFilter = 'Todos';
   final Set<String> _favoriteTipIds = {};
   final Set<String> _expandedTipIds = {};
+  List<TipHeroModel>? _aiTipHeroes;
+  List<TipInsightModel>? _aiTipInsights;
+  List<TipRecommendationModel>? _aiTipRecommendations;
   bool _isInitializing = true;
   bool _isSavingSymptoms = false;
   bool _isSavingProfile = false;
   bool _isSavingWorkout = false;
+  bool _isRefreshingTips = false;
   String? _userId;
   String? _lastError;
+  String? _tipsError;
 
   static const List<Map<String, dynamic>> _moodCatalog = [
     {'key': 'calmada', 'label': 'Calmada', 'icon': Icons.favorite_border_rounded},
@@ -86,7 +95,9 @@ class AppController extends ChangeNotifier {
   bool get isSavingSymptoms => _isSavingSymptoms;
   bool get isSavingProfile => _isSavingProfile;
   bool get isSavingWorkout => _isSavingWorkout;
+  bool get isRefreshingTips => _isRefreshingTips;
   String? get lastError => _lastError;
+  String? get tipsError => _tipsError;
   double get energyLevel => _energyLevel;
   int get tipsCarouselIndex => _tipsCarouselIndex;
   String get tipsFilter => _tipsFilter;
@@ -136,6 +147,7 @@ class AppController extends ChangeNotifier {
     } finally {
       _isInitializing = false;
       notifyListeners();
+      unawaited(refreshAiTips());
     }
   }
 
@@ -155,6 +167,7 @@ class AppController extends ChangeNotifier {
       );
   String get previousPeriodLabel => _formatDate(_cycleData.periodStartDate);
   String get profileName => _profile.name;
+  String get profileFirstName => _profile.name.split(' ').first;
   String get profileEmail => _profile.email;
   String get profileAvatarUrl => _profile.avatarUrl;
   int get workoutsCount => _workouts.length;
@@ -162,6 +175,53 @@ class AppController extends ChangeNotifier {
       _workouts.fold(0, (sum, item) => sum + item.durationMinutes);
   int get totalWorkoutCalories =>
       _workouts.fold(0, (sum, item) => sum + item.calories);
+  double get cycleProgress => currentCycleDay / _cycleData.cycleLength;
+  String get cycleLengthLabel => '${_cycleData.cycleLength} días';
+  String get nextPeriodCountdownLabel {
+    final difference = _cycleData.periodStartDate
+        .add(Duration(days: _cycleData.cycleLength))
+        .difference(_today)
+        .inDays;
+    if (difference <= 0) return 'Hoy';
+    if (difference == 1) return 'En 1 día';
+    return 'En $difference días';
+  }
+
+  IconData get currentPhaseIcon {
+    switch (_phaseForDate(_today)) {
+      case CyclePhase.menstrual:
+        return Icons.water_drop_outlined;
+      case CyclePhase.follicular:
+        return Icons.wb_sunny_outlined;
+      case CyclePhase.ovulatory:
+        return Icons.brightness_3_outlined;
+      case CyclePhase.luteal:
+        return Icons.show_chart_rounded;
+    }
+  }
+
+  String get homeRecommendationText {
+    final featured = filteredTips.isNotEmpty ? filteredTips.first : null;
+    return featured?.description ?? _phaseAdviceHome;
+  }
+
+  String get exerciseRecommendationText {
+    final exerciseTip = _tipsCatalog.firstWhere(
+      (tip) => tip.section == 'Actividad física',
+      orElse: () => TipRecommendationModel(
+        id: 'exercise_fallback',
+        section: 'Actividad física',
+        title: 'Muévete a tu ritmo',
+        description: _phaseAdviceExercise,
+        icon: Icons.fitness_center_rounded,
+        tint: const Color(0xFFFFE0E0),
+        sectionColor: const Color(0xFFFF564E),
+      ),
+    );
+    return exerciseTip.description;
+  }
+
+  String get symptomsAdviceText => _phaseAdviceSymptoms;
 
   void selectTab(AppTab tab) {
     if (_selectedTab == tab) return;
@@ -240,9 +300,11 @@ class AppController extends ChangeNotifier {
       );
       await _symptomsService.saveRecord(_userId!, record);
       _recentSymptoms = await _symptomsService.getRecentRecords(_userId!, limit: 8);
+      _tipsError = null;
     } finally {
       _isSavingSymptoms = false;
       notifyListeners();
+      unawaited(refreshAiTips());
     }
   }
 
@@ -287,6 +349,7 @@ class AppController extends ChangeNotifier {
     } finally {
       _isSavingWorkout = false;
       notifyListeners();
+      unawaited(refreshAiTips());
     }
   }
 
@@ -310,6 +373,58 @@ class AppController extends ChangeNotifier {
 
     if (_userId != null) {
       await _cycleService.saveCycle(_userId!, _cycleData);
+    }
+    unawaited(refreshAiTips());
+  }
+
+  Future<void> refreshAiTips() async {
+    if (_isRefreshingTips) return;
+
+    _isRefreshingTips = true;
+    _tipsError = null;
+    notifyListeners();
+
+    try {
+      final payload = await _geminiTipsService.generateRecommendations(
+        profile: _profile,
+        cycle: _cycleData,
+        currentCycleDay: currentCycleDay,
+        currentPhase: currentPhaseLabel,
+        currentEnergyLevel: _energyLevel,
+        currentMoods: _selectedMoodLabels,
+        currentSymptoms: _selectedSymptomLabels,
+        recentSymptoms: _recentSymptoms,
+        recentWorkouts: _workouts,
+      );
+
+      _aiTipHeroes = payload.heroes
+          .map(_mapHeroDraft)
+          .whereType<TipHeroModel>()
+          .toList();
+      _aiTipInsights = payload.insights.map(_mapInsightDraft).toList();
+      _aiTipRecommendations = payload.recommendations
+          .map(_mapRecommendationDraft)
+          .whereType<TipRecommendationModel>()
+          .toList();
+
+      if ((_aiTipHeroes?.isEmpty ?? true)) {
+        _aiTipHeroes = null;
+      }
+      if ((_aiTipInsights?.isEmpty ?? true)) {
+        _aiTipInsights = null;
+      }
+      if ((_aiTipRecommendations?.isEmpty ?? true)) {
+        _aiTipRecommendations = null;
+      }
+
+      if (_tipsCarouselIndex >= tipHeroes.length) {
+        _tipsCarouselIndex = 0;
+      }
+    } catch (error) {
+      _tipsError = error.toString();
+    } finally {
+      _isRefreshingTips = false;
+      notifyListeners();
     }
   }
 
@@ -481,7 +596,9 @@ class AppController extends ChangeNotifier {
         ),
       ];
 
-  List<TipHeroModel> get tipHeroes => const [
+  List<TipHeroModel> get tipHeroes => _aiTipHeroes ?? _defaultTipHeroes;
+
+  static const List<TipHeroModel> _defaultTipHeroes = [
         TipHeroModel(
           id: 'hydration',
           title: 'Hidratación',
@@ -508,7 +625,9 @@ class AppController extends ChangeNotifier {
         ),
       ];
 
-  List<TipInsightModel> get tipInsights => const [
+  List<TipInsightModel> get tipInsights => _aiTipInsights ?? _defaultTipInsights;
+
+  static const List<TipInsightModel> _defaultTipInsights = [
         TipInsightModel(
           title: 'Tu patrón de energía',
           description:
@@ -532,7 +651,10 @@ class AppController extends ChangeNotifier {
         ),
       ];
 
-  List<TipRecommendationModel> get _tipsCatalog => const [
+  List<TipRecommendationModel> get _tipsCatalog =>
+      _aiTipRecommendations ?? _defaultTipsCatalog;
+
+  static const List<TipRecommendationModel> _defaultTipsCatalog = [
         TipRecommendationModel(
           id: 'nutri_proteinas',
           section: 'Nutrición',
@@ -761,6 +883,153 @@ class AppController extends ChangeNotifier {
         ),
       ];
 
+  List<String> get _selectedMoodLabels => _moodCatalog
+      .where((item) => _selectedMoodKeys.contains(item['key']))
+      .map((item) => item['label'] as String)
+      .toList();
+
+  List<String> get _selectedSymptomLabels => _symptomCatalog
+      .where((item) => _selectedSymptomKeys.contains(item['key']))
+      .map((item) => item['label'] as String)
+      .toList();
+
+  TipHeroModel? _mapHeroDraft(AiHeroDraft draft) {
+    final theme = _sectionTheme(_normalizeTipSection(draft.category));
+    if (theme == null) return null;
+
+    return TipHeroModel(
+      id: draft.id.isEmpty ? draft.category.toLowerCase() : draft.id,
+      title: draft.category,
+      subtitle: draft.message,
+      badge: draft.category,
+      icon: theme.icon,
+      backgroundColor: theme.color,
+    );
+  }
+
+  TipInsightModel _mapInsightDraft(AiInsightDraft draft) {
+    final icon = _iconForInsight(draft.title);
+    final progress = (draft.progress / 100).clamp(0.0, 1.0);
+
+    return TipInsightModel(
+      title: draft.title,
+      description: draft.description,
+      progress: progress,
+      icon: icon,
+    );
+  }
+
+  TipRecommendationModel? _mapRecommendationDraft(AiTipDraft draft) {
+    final normalizedSection = _normalizeTipSection(draft.section);
+    final theme = _sectionTheme(normalizedSection);
+    if (theme == null) return null;
+
+    return TipRecommendationModel(
+      id: _slugify('$normalizedSection ${draft.title}'),
+      section: normalizedSection,
+      title: draft.title,
+      description: draft.description,
+      icon: theme.icon,
+      tint: theme.tint,
+      sectionColor: theme.color,
+    );
+  }
+
+  String _normalizeTipSection(String value) {
+    final normalized = value
+        .toLowerCase()
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ú', 'u');
+
+    if (normalized.contains('nutri')) return 'Nutrición';
+    if (normalized.contains('descanso') || normalized.contains('sueno')) {
+      return 'Descanso';
+    }
+    if (normalized.contains('actividad') ||
+        normalized.contains('ejercicio') ||
+        normalized.contains('entren')) {
+      return 'Actividad física';
+    }
+    if (normalized.contains('hidra') || normalized.contains('agua')) {
+      return 'Hidratación';
+    }
+    if (normalized.contains('mental') ||
+        normalized.contains('emoc') ||
+        normalized.contains('bienestar')) {
+      return 'Bienestar mental';
+    }
+    return value;
+  }
+
+  IconData _iconForInsight(String title) {
+    final normalized = title.toLowerCase();
+    if (normalized.contains('energ')) return Icons.bolt_rounded;
+    if (normalized.contains('entren') || normalized.contains('consisten')) {
+      return Icons.trending_up_rounded;
+    }
+    if (normalized.contains('sintom') || normalized.contains('bienestar')) {
+      return Icons.favorite_border_rounded;
+    }
+    return Icons.auto_awesome_rounded;
+  }
+
+  _TipSectionTheme? _sectionTheme(String section) {
+    switch (section) {
+      case 'Nutrición':
+        return const _TipSectionTheme(
+          icon: Icons.apple_rounded,
+          tint: Color(0xFFD9F9E4),
+          color: Color(0xFF10C55A),
+        );
+      case 'Descanso':
+        return const _TipSectionTheme(
+          icon: Icons.nightlight_round,
+          tint: Color(0xFFF0E2FF),
+          color: Color(0xFFA445F7),
+        );
+      case 'Actividad física':
+        return const _TipSectionTheme(
+          icon: Icons.fitness_center_rounded,
+          tint: Color(0xFFFFE0E0),
+          color: Color(0xFFFF564E),
+        );
+      case 'Hidratación':
+        return const _TipSectionTheme(
+          icon: Icons.opacity_rounded,
+          tint: Color(0xFFDCEAFF),
+          color: Color(0xFF377EF7),
+        );
+      case 'Bienestar mental':
+        return const _TipSectionTheme(
+          icon: Icons.spa_outlined,
+          tint: Color(0xFFFFE0F2),
+          color: Color(0xFFFF3D96),
+        );
+      case 'Ejercicio':
+        return const _TipSectionTheme(
+          icon: Icons.bolt_rounded,
+          tint: Color(0xFFFFE0E0),
+          color: Color(0xFFFF6E63),
+        );
+    }
+    return null;
+  }
+
+  String _slugify(String input) {
+    return input
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+
   int _cycleDayForDate(DateTime date) {
     final difference = date.difference(_cycleData.periodStartDate).inDays;
     final normalized = difference % _cycleData.cycleLength;
@@ -785,6 +1054,45 @@ class AppController extends ChangeNotifier {
         return 'Ovulatoria';
       case CyclePhase.luteal:
         return 'Lútea';
+    }
+  }
+
+  String get _phaseAdviceHome {
+    switch (_phaseForDate(_today)) {
+      case CyclePhase.menstrual:
+        return 'Prioriza descanso activo, hidratación y comidas reconfortantes mientras tu cuerpo recupera energía.';
+      case CyclePhase.follicular:
+        return 'Tu energía va en aumento. Es un buen momento para planear actividades, retomar hábitos y comer ligero pero nutritivo.';
+      case CyclePhase.ovulatory:
+        return 'Tu energía está alta. Aprovecha este momento para entrenamientos más intensos y tareas que requieran enfoque.';
+      case CyclePhase.luteal:
+        return 'Baja un poco el ritmo, organiza pausas de descanso y prioriza alimentos que te ayuden con saciedad y estabilidad.';
+    }
+  }
+
+  String get _phaseAdviceExercise {
+    switch (_phaseForDate(_today)) {
+      case CyclePhase.menstrual:
+        return 'Estás en fase menstrual. Prioriza movilidad suave, caminatas o sesiones cortas de bajo impacto.';
+      case CyclePhase.follicular:
+        return 'Estás en fase folicular. Tu cuerpo suele responder bien a progresiones de fuerza y cardio moderado.';
+      case CyclePhase.ovulatory:
+        return 'Estás en fase ovulatoria. Tu fuerza y energía están en un buen punto para HIIT, fuerza o entrenos más exigentes.';
+      case CyclePhase.luteal:
+        return 'Estás en fase lútea. Ajusta la intensidad y da espacio a yoga, pilates, caminatas o fuerza con menor carga.';
+    }
+  }
+
+  String get _phaseAdviceSymptoms {
+    switch (_phaseForDate(_today)) {
+      case CyclePhase.menstrual:
+        return 'Durante la fase menstrual es común necesitar más descanso. Escucha tu cuerpo y registra dolor, energía y flujo con calma.';
+      case CyclePhase.follicular:
+        return 'En fase folicular suele mejorar la energía. Aprovecha para identificar qué hábitos te hacen sentir mejor.';
+      case CyclePhase.ovulatory:
+        return 'En fase ovulatoria puede subir tu energía y el ánimo. Registra cómo responde tu cuerpo para detectar patrones.';
+      case CyclePhase.luteal:
+        return 'En fase lútea pueden aparecer más cambios físicos o emocionales. Llevar registro te ayudará a anticiparte mejor.';
     }
   }
 
@@ -863,4 +1171,16 @@ class AppController extends ChangeNotifier {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
   }
+}
+
+class _TipSectionTheme {
+  const _TipSectionTheme({
+    required this.icon,
+    required this.tint,
+    required this.color,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final Color color;
 }

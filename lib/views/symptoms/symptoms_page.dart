@@ -201,7 +201,7 @@ class SymptomsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Durante la fase ovulatoria, es normal sentir más energía y mejor estado de ánimo. Aprovecha este momento para actividades sociales y ejercicio intenso.',
+                  controller.symptomsAdviceText,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.primary,
                         height: 1.55,
