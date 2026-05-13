@@ -24,11 +24,26 @@ class FirestoreService {
     return userDoc(uid).collection(FirebasePaths.profile).doc('onboarding');
   }
 
-  static CollectionReference<Map<String, dynamic>> symptomsCollection(String uid) {
+  static CollectionReference<Map<String, dynamic>> symptomsCollection(
+    String uid,
+  ) {
     return userDoc(uid).collection(FirebasePaths.symptoms);
   }
 
-  static CollectionReference<Map<String, dynamic>> workoutsCollection(String uid) {
+  static CollectionReference<Map<String, dynamic>> workoutsCollection(
+    String uid,
+  ) {
     return userDoc(uid).collection(FirebasePaths.workouts);
+  }
+
+  static CollectionReference<Map<String, dynamic>> feedPostsCollection() {
+    FirebaseGuard.ensureInitialized();
+    return instance.collection(FirebasePaths.feedPosts);
+  }
+
+  static CollectionReference<Map<String, dynamic>> feedCommentsCollection(
+    String postId,
+  ) {
+    return feedPostsCollection().doc(postId).collection('comments');
   }
 }

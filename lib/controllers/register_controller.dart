@@ -1,6 +1,7 @@
 import 'package:cycle_fit/core/services/auth/auth_service.dart';
 import 'package:cycle_fit/core/services/firebase/cycle_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/onboarding_firestore_service.dart';
+import 'package:cycle_fit/core/services/firebase/profile_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/symptoms_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/workouts_firestore_service.dart';
 import 'package:cycle_fit/core/validators/register_validators.dart';
@@ -8,7 +9,15 @@ import 'package:cycle_fit/models/app_models.dart';
 import 'package:cycle_fit/models/user_model.dart';
 import 'package:flutter/material.dart';
 
-enum RegisterStep { account, regularity, symptoms, mood, energy, workout }
+enum RegisterStep {
+  account,
+  bodyMetrics,
+  regularity,
+  symptoms,
+  mood,
+  energy,
+  workout,
+}
 
 class RegisterController extends ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -19,6 +28,8 @@ class RegisterController extends ChangeNotifier {
       const WorkoutsFirestoreService();
   final OnboardingFirestoreService _onboardingService =
       const OnboardingFirestoreService();
+  final ProfileFirestoreService _profileService =
+      const ProfileFirestoreService();
 
   final TextEditingController nombreController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -27,6 +38,8 @@ class RegisterController extends ChangeNotifier {
       TextEditingController();
   final TextEditingController birthDateController = TextEditingController();
   final TextEditingController lastPeriodController = TextEditingController();
+  final TextEditingController weightController = TextEditingController();
+  final TextEditingController heightController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -45,6 +58,7 @@ class RegisterController extends ChangeNotifier {
   String _selectedWorkoutIntensity = 'Media';
   bool _skipSymptoms = false;
   bool _skipWorkout = false;
+  bool _isGoogleOnboarding = false;
 
   bool get isLoading => _isLoading;
   bool get obscurePassword => _obscurePassword;
@@ -68,14 +82,17 @@ class RegisterController extends ChangeNotifier {
   int get stepIndex => RegisterStep.values.indexOf(_currentStep);
   int get totalSteps => RegisterStep.values.length;
   double get progress => (stepIndex + 1) / totalSteps;
-  bool get isFirstStep => _currentStep == RegisterStep.account;
+  bool get isFirstStep =>
+      _currentStep == RegisterStep.account ||
+      (_isGoogleOnboarding && _currentStep == RegisterStep.bodyMetrics);
   bool get canSkipCurrentStep =>
       _currentStep == RegisterStep.symptoms ||
       _currentStep == RegisterStep.workout;
 
   List<RegisterChoice> get regularityOptions => _regularityCatalog
       .map(
-        (item) => item.copyWith(isSelected: item.keyName == _periodRegularityKey),
+        (item) =>
+            item.copyWith(isSelected: item.keyName == _periodRegularityKey),
       )
       .toList();
 
@@ -112,8 +129,9 @@ class RegisterController extends ChangeNotifier {
               items: category.items
                   .map(
                     (item) => item.copyWith(
-                      isSelected:
-                          _selectedWorkoutDetailKeys.contains(item.keyName),
+                      isSelected: _selectedWorkoutDetailKeys.contains(
+                        item.keyName,
+                      ),
                     ),
                   )
                   .toList(),
@@ -234,7 +252,13 @@ class RegisterController extends ChangeNotifier {
     switch (_currentStep) {
       case RegisterStep.account:
         if (!_validateAccountStep()) return false;
+        _currentStep = RegisterStep.bodyMetrics;
+        notifyListeners();
+        return false;
+      case RegisterStep.bodyMetrics:
+        if (!_validateBodyMetricsStep()) return false;
         _currentStep = RegisterStep.regularity;
+        if (_isGoogleOnboarding) _currentStep = RegisterStep.symptoms;
         notifyListeners();
         return false;
       case RegisterStep.regularity:
@@ -282,7 +306,7 @@ class RegisterController extends ChangeNotifier {
           notifyListeners();
           return false;
         }
-        return register();
+        return finishRegistrationFlow();
     }
   }
 
@@ -316,9 +340,12 @@ class RegisterController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final birthDate = RegisterValidators.parseUiDate(birthDateController.text);
-      final lastPeriodDate =
-          RegisterValidators.parseUiDate(lastPeriodController.text);
+      final birthDate = RegisterValidators.parseUiDate(
+        birthDateController.text,
+      );
+      final lastPeriodDate = RegisterValidators.parseUiDate(
+        lastPeriodController.text,
+      );
 
       final user = await _authService.register(
         nombre: nombreController.text.trim(),
@@ -338,8 +365,8 @@ class RegisterController extends ChangeNotifier {
         userId: user.id,
         lastPeriodDate: lastPeriodDate,
       );
+      await _saveProfileFromRegistration(user);
       _newUser = user;
-      await _authService.logout();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -362,6 +389,48 @@ class RegisterController extends ChangeNotifier {
         return false;
       }
       _newUser = user;
+      if (!_authService.lastGoogleSignInCreatedUser) {
+        return true;
+      }
+      _isGoogleOnboarding = true;
+      _currentStep = RegisterStep.bodyMetrics;
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void startGoogleOnboardingForCurrentUser() {
+    _isGoogleOnboarding = true;
+    _currentStep = RegisterStep.bodyMetrics;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  Future<bool> finishRegistrationFlow() {
+    return _isGoogleOnboarding ? _finishGoogleOnboarding() : register();
+  }
+
+  Future<bool> _finishGoogleOnboarding() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final user = await _authService.getCurrentUser();
+      if (user == null) {
+        _errorMessage = 'No se pudo obtener el usuario autenticado';
+        return false;
+      }
+      await _saveOnboardingRecords(
+        userId: user.id,
+        lastPeriodDate: user.ultimaPeriodo,
+      );
+      await _saveProfileFromRegistration(user);
+      _newUser = user;
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -373,7 +442,8 @@ class RegisterController extends ChangeNotifier {
   }
 
   bool _validateAccountStep() {
-    final firstError = validateNombre(nombreController.text) ??
+    final firstError =
+        validateNombre(nombreController.text) ??
         validateEmail(emailController.text) ??
         validatePassword(passwordController.text) ??
         validateConfirmPassword(confirmPasswordController.text);
@@ -411,6 +481,37 @@ class RegisterController extends ChangeNotifier {
     }
 
     return true;
+  }
+
+  bool _validateBodyMetricsStep() {
+    final weight = double.tryParse(weightController.text.replaceAll(',', '.'));
+    if (weight == null || weight <= 0 || weight > 350) {
+      _errorMessage = 'Ingresa un peso corporal valido';
+      notifyListeners();
+      return false;
+    }
+    final height = double.tryParse(heightController.text.replaceAll(',', '.'));
+    if (height == null || height <= 0 || height > 250) {
+      _errorMessage = 'Ingresa una estatura valida en centimetros';
+      notifyListeners();
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _saveProfileFromRegistration(UserModel user) async {
+    final existingProfile = await _profileService.getProfile(user.id);
+    await _profileService.saveProfile(
+      user.id,
+      existingProfile.copyWith(
+        name: user.nombre.isEmpty ? existingProfile.name : user.nombre,
+        email: user.email,
+        age: _ageFromBirthDate(user.fechaNacimiento),
+        weightKg: double.parse(weightController.text.replaceAll(',', '.')),
+        heightCm: double.parse(heightController.text.replaceAll(',', '.')),
+        avatarUrl: user.fotoPerfil ?? existingProfile.avatarUrl,
+      ),
+    );
   }
 
   Future<void> _saveOnboardingRecords({
@@ -486,7 +587,9 @@ class RegisterController extends ChangeNotifier {
 
     if (!_skipWorkout && _selectedWorkoutDetailKeys.isNotEmpty) {
       final workouts = await _workoutsService.getWorkouts(userId);
-      final selectedTitles = _selectedWorkouts.map((item) => item.label).toSet();
+      final selectedTitles = _selectedWorkouts
+          .map((item) => item.label)
+          .toSet();
       final savedTitles = workouts.map((item) => item.title).toSet();
       if (!selectedTitles.every(savedTitles.contains)) {
         throw Exception('No se pudo validar el entrenamiento guardado');
@@ -511,6 +614,17 @@ class RegisterController extends ChangeNotifier {
 
   DateTime _dateOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
+
+  int _ageFromBirthDate(DateTime? birthDate) {
+    if (birthDate == null) return 0;
+    final now = DateTime.now();
+    var age = now.year - birthDate.year;
+    final hadBirthday =
+        now.month > birthDate.month ||
+        (now.month == birthDate.month && now.day >= birthDate.day);
+    if (!hadBirthday) age--;
+    return age < 0 ? 0 : age;
+  }
 
   DateTime get _today {
     final now = DateTime.now();
@@ -542,6 +656,8 @@ class RegisterController extends ChangeNotifier {
     confirmPasswordController.dispose();
     birthDateController.dispose();
     lastPeriodController.dispose();
+    weightController.dispose();
+    heightController.dispose();
     super.dispose();
   }
 

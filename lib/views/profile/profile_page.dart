@@ -6,10 +6,7 @@ import 'package:cycle_fit/widgets/surface_card.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({
-    super.key,
-    required this.controller,
-  });
+  const ProfilePage({super.key, required this.controller});
 
   final AppController controller;
 
@@ -31,9 +28,9 @@ class ProfilePage extends StatelessWidget {
             child: Text(
               'Perfil',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontSize: 22,
-                  ),
+                color: Colors.white,
+                fontSize: 22,
+              ),
             ),
           ),
           Transform.translate(
@@ -92,16 +89,17 @@ class ProfilePage extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 'Información personal',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontSize: 16,
-                                    ),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.titleLarge?.copyWith(fontSize: 16),
                               ),
                             ),
                             InkWell(
                               onTap: () => _showEditProfileDialog(context),
                               child: Text(
                                 'Editar',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -124,14 +122,20 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      for (var i = 0; i < controller.profileStats.length; i++) ...[
+                      for (
+                        var i = 0;
+                        i < controller.profileStats.length;
+                        i++
+                      ) ...[
                         Expanded(
                           child: SurfaceCard(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 14,
                             ),
-                            child: _ProfileStatCard(item: controller.profileStats[i]),
+                            child: _ProfileStatCard(
+                              item: controller.profileStats[i],
+                            ),
                           ),
                         ),
                         if (i < controller.profileStats.length - 1)
@@ -144,7 +148,11 @@ class ProfilePage extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     child: Column(
                       children: [
-                        for (var i = 0; i < controller.profileMenu.length; i++) ...[
+                        for (
+                          var i = 0;
+                          i < controller.profileMenu.length;
+                          i++
+                        ) ...[
                           _ProfileMenuRow(item: controller.profileMenu[i]),
                           if (i < controller.profileMenu.length - 1)
                             const Divider(height: 1, color: AppColors.border),
@@ -156,7 +164,15 @@ class ProfilePage extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => controller.selectTab(AppTab.home),
+                      onPressed: () async {
+                        await controller.logout();
+                        if (!context.mounted) return;
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/login',
+                          (_) => false,
+                        );
+                      },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: const Color(0xFFFF2E4D),
                         side: const BorderSide(color: Color(0xFFFF2E4D)),
@@ -175,9 +191,9 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 14),
                   Text(
                     'Cyclofit v1.0.0 • Hecho con 💗',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 10,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontSize: 10),
                   ),
                 ],
               ),
@@ -190,7 +206,9 @@ class ProfilePage extends StatelessWidget {
 
   Future<void> _showEditProfileDialog(BuildContext context) async {
     final nameController = TextEditingController(text: controller.profileName);
-    final emailController = TextEditingController(text: controller.profileEmail);
+    final emailController = TextEditingController(
+      text: controller.profileEmail,
+    );
     final ageController = TextEditingController(
       text: controller.profileInfo
           .firstWhere((item) => item.label == 'Edad')
@@ -202,6 +220,12 @@ class ProfilePage extends StatelessWidget {
           .firstWhere((item) => item.label == 'Peso')
           .value
           .replaceAll(' kg', ''),
+    );
+    final heightController = TextEditingController(
+      text: controller.profileInfo
+          .firstWhere((item) => item.label == 'Estatura')
+          .value
+          .replaceAll(' cm', ''),
     );
     final goalController = TextEditingController(
       text: controller.profileInfo
@@ -234,7 +258,16 @@ class ProfilePage extends StatelessWidget {
                 TextField(
                   controller: weightController,
                   decoration: const InputDecoration(labelText: 'Peso'),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
+                TextField(
+                  controller: heightController,
+                  decoration: const InputDecoration(labelText: 'Estatura'),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                 ),
                 TextField(
                   controller: goalController,
@@ -257,7 +290,9 @@ class ProfilePage extends StatelessWidget {
                           name: nameController.text,
                           email: emailController.text,
                           age: int.tryParse(ageController.text) ?? 28,
-                          weightKg: double.tryParse(weightController.text) ?? 65,
+                          weightKg:
+                              double.tryParse(weightController.text) ?? 65,
+                          heightCm: double.tryParse(heightController.text) ?? 0,
                           goal: goalController.text,
                           avatarUrl: controller.profileAvatarUrl,
                         ),
@@ -303,16 +338,16 @@ class _ProfileInfoTile extends StatelessWidget {
                 Text(
                   item.label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   item.value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.primary,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.primary),
                 ),
               ],
             ),
@@ -334,9 +369,9 @@ class _ProfileStatCard extends StatelessWidget {
       children: [
         Text(
           item.value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontSize: 30,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontSize: 30),
         ),
         const SizedBox(height: 10),
         Text(
@@ -377,12 +412,15 @@ class _ProfileMenuRow extends StatelessWidget {
                 Text(
                   item.title,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
-                Text(item.subtitle, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  item.subtitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ],
             ),
           ),

@@ -79,6 +79,7 @@ class WorkoutBarModel {
 
 class PostModel {
   const PostModel({
+    required this.id,
     required this.author,
     required this.timeAgo,
     required this.content,
@@ -86,8 +87,12 @@ class PostModel {
     required this.likes,
     required this.comments,
     this.imageUrl,
+    this.workoutTitle,
+    this.workoutExercises = const [],
+    this.isLikedByCurrentUser = false,
   });
 
+  final String id;
   final String author;
   final String timeAgo;
   final String content;
@@ -95,6 +100,104 @@ class PostModel {
   final int likes;
   final int comments;
   final String? imageUrl;
+  final String? workoutTitle;
+  final List<String> workoutExercises;
+  final bool isLikedByCurrentUser;
+}
+
+class FeedPostData {
+  const FeedPostData({
+    required this.id,
+    required this.authorId,
+    required this.authorName,
+    required this.content,
+    required this.createdAt,
+    this.imageUrl,
+    this.workoutTitle,
+    this.workoutExercises = const [],
+    this.likedBy = const [],
+    this.commentsCount = 0,
+  });
+
+  final String id;
+  final String authorId;
+  final String authorName;
+  final String content;
+  final DateTime createdAt;
+  final String? imageUrl;
+  final String? workoutTitle;
+  final List<String> workoutExercises;
+  final List<String> likedBy;
+  final int commentsCount;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'authorId': authorId,
+      'authorName': authorName,
+      'content': content,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'imageUrl': imageUrl,
+      'workoutTitle': workoutTitle,
+      'workoutExercises': workoutExercises,
+      'likedBy': likedBy,
+      'commentsCount': commentsCount,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory FeedPostData.fromMap(String id, Map<String, dynamic> map) {
+    final timestamp = map['createdAt'];
+    return FeedPostData(
+      id: id,
+      authorId: map['authorId'] as String? ?? '',
+      authorName: map['authorName'] as String? ?? 'Usuario',
+      content: map['content'] as String? ?? '',
+      createdAt: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),
+      imageUrl: map['imageUrl'] as String?,
+      workoutTitle: map['workoutTitle'] as String?,
+      workoutExercises: List<String>.from(
+        map['workoutExercises'] as List? ?? const [],
+      ),
+      likedBy: List<String>.from(map['likedBy'] as List? ?? const []),
+      commentsCount: (map['commentsCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class FeedCommentData {
+  const FeedCommentData({
+    required this.id,
+    required this.authorId,
+    required this.authorName,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String authorId;
+  final String authorName;
+  final String content;
+  final DateTime createdAt;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'authorId': authorId,
+      'authorName': authorName,
+      'content': content,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
+
+  factory FeedCommentData.fromMap(String id, Map<String, dynamic> map) {
+    final timestamp = map['createdAt'];
+    return FeedCommentData(
+      id: id,
+      authorId: map['authorId'] as String? ?? '',
+      authorName: map['authorName'] as String? ?? 'Usuario',
+      content: map['content'] as String? ?? '',
+      createdAt: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),
+    );
+  }
 }
 
 class ProfileInfoItem {
@@ -110,10 +213,7 @@ class ProfileInfoItem {
 }
 
 class ProfileStatItem {
-  const ProfileStatItem({
-    required this.value,
-    required this.label,
-  });
+  const ProfileStatItem({required this.value, required this.label});
 
   final String value;
   final String label;
@@ -151,6 +251,7 @@ class UserProfileData {
     required this.email,
     required this.age,
     required this.weightKg,
+    required this.heightCm,
     required this.goal,
     required this.avatarUrl,
   });
@@ -159,18 +260,19 @@ class UserProfileData {
   final String email;
   final int age;
   final double weightKg;
+  final double heightCm;
   final String goal;
   final String avatarUrl;
 
   factory UserProfileData.initial() {
     return const UserProfileData(
-      name: 'María González',
-      email: 'maria.gonzalez@email.com',
-      age: 28,
-      weightKg: 65,
-      goal: 'Equilibrio hormonal',
-      avatarUrl:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=400&q=80',
+      name: 'Usuario',
+      email: '',
+      age: 0,
+      weightKg: 0,
+      heightCm: 0,
+      goal: 'Sin definir',
+      avatarUrl: '',
     );
   }
 
@@ -179,6 +281,7 @@ class UserProfileData {
     String? email,
     int? age,
     double? weightKg,
+    double? heightCm,
     String? goal,
     String? avatarUrl,
   }) {
@@ -187,6 +290,7 @@ class UserProfileData {
       email: email ?? this.email,
       age: age ?? this.age,
       weightKg: weightKg ?? this.weightKg,
+      heightCm: heightCm ?? this.heightCm,
       goal: goal ?? this.goal,
       avatarUrl: avatarUrl ?? this.avatarUrl,
     );
@@ -198,6 +302,7 @@ class UserProfileData {
       'email': email,
       'age': age,
       'weightKg': weightKg,
+      'heightCm': heightCm,
       'goal': goal,
       'avatarUrl': avatarUrl,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -210,7 +315,11 @@ class UserProfileData {
       email: map['email'] as String? ?? UserProfileData.initial().email,
       age: (map['age'] as num?)?.toInt() ?? UserProfileData.initial().age,
       weightKg:
-          (map['weightKg'] as num?)?.toDouble() ?? UserProfileData.initial().weightKg,
+          (map['weightKg'] as num?)?.toDouble() ??
+          UserProfileData.initial().weightKg,
+      heightCm:
+          (map['heightCm'] as num?)?.toDouble() ??
+          UserProfileData.initial().heightCm,
       goal: map['goal'] as String? ?? UserProfileData.initial().goal,
       avatarUrl:
           map['avatarUrl'] as String? ?? UserProfileData.initial().avatarUrl,
@@ -219,16 +328,14 @@ class UserProfileData {
 }
 
 class CycleData {
-  const CycleData({
-    required this.periodStartDate,
-    this.cycleLength = 28,
-  });
+  const CycleData({required this.periodStartDate, this.cycleLength = 28});
 
   final DateTime periodStartDate;
   final int cycleLength;
 
   factory CycleData.initial() {
-    return CycleData(periodStartDate: DateTime(2026, 3, 1));
+    final now = DateTime.now();
+    return CycleData(periodStartDate: DateTime(now.year, now.month, now.day));
   }
 
   Map<String, dynamic> toMap() {
@@ -295,6 +402,7 @@ class WorkoutData {
     required this.durationMinutes,
     required this.calories,
     required this.date,
+    this.exerciseGroups = const {},
   });
 
   final String id;
@@ -303,6 +411,10 @@ class WorkoutData {
   final int durationMinutes;
   final int calories;
   final DateTime date;
+  final Map<String, List<String>> exerciseGroups;
+
+  List<String> get exerciseNames =>
+      exerciseGroups.values.expand((items) => items).toList();
 
   WorkoutData copyWith({
     String? id,
@@ -311,6 +423,7 @@ class WorkoutData {
     int? durationMinutes,
     int? calories,
     DateTime? date,
+    Map<String, List<String>>? exerciseGroups,
   }) {
     return WorkoutData(
       id: id ?? this.id,
@@ -319,6 +432,7 @@ class WorkoutData {
       durationMinutes: durationMinutes ?? this.durationMinutes,
       calories: calories ?? this.calories,
       date: date ?? this.date,
+      exerciseGroups: exerciseGroups ?? this.exerciseGroups,
     );
   }
 
@@ -329,6 +443,7 @@ class WorkoutData {
       'durationMinutes': durationMinutes,
       'calories': calories,
       'date': Timestamp.fromDate(date),
+      'exerciseGroups': exerciseGroups,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -342,7 +457,18 @@ class WorkoutData {
       durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 30,
       calories: (map['calories'] as num?)?.toInt() ?? 200,
       date: timestamp is Timestamp ? timestamp.toDate() : DateTime.now(),
+      exerciseGroups: _exerciseGroupsFromMap(map['exerciseGroups']),
     );
+  }
+
+  static Map<String, List<String>> _exerciseGroupsFromMap(dynamic value) {
+    if (value is! Map) return const {};
+    return value.map((key, groupValue) {
+      return MapEntry(
+        key.toString(),
+        List<String>.from(groupValue as List? ?? const []),
+      );
+    });
   }
 }
 
@@ -359,8 +485,8 @@ class OnboardingStatusData {
   final bool skippedSymptoms;
   final bool skippedWorkout;
 
-  bool get needsSymptoms => !completedSymptoms;
-  bool get needsWorkout => !completedWorkout;
+  bool get needsSymptoms => !completedSymptoms && !skippedSymptoms;
+  bool get needsWorkout => !completedWorkout && !skippedWorkout;
 
   Map<String, dynamic> toMap() {
     return {
@@ -451,10 +577,7 @@ class TipRecommendationModel {
   final bool isFavorite;
   final bool isExpanded;
 
-  TipRecommendationModel copyWith({
-    bool? isFavorite,
-    bool? isExpanded,
-  }) {
+  TipRecommendationModel copyWith({bool? isFavorite, bool? isExpanded}) {
     return TipRecommendationModel(
       id: id,
       section: section,
@@ -548,7 +671,9 @@ class AiTipsPayload {
           .toList(),
       insights: (map['insights'] as List? ?? const [])
           .whereType<Map>()
-          .map((item) => AiInsightDraft.fromMap(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => AiInsightDraft.fromMap(Map<String, dynamic>.from(item)),
+          )
           .toList(),
       recommendations: (map['recommendations'] as List? ?? const [])
           .whereType<Map>()

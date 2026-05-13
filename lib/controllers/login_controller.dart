@@ -17,6 +17,8 @@ class LoginController extends ChangeNotifier {
   bool get obscurePassword => _obscurePassword;
   String? get errorMessage => _errorMessage;
   UserModel? get currentUser => _currentUser;
+  bool get shouldRunGoogleOnboarding =>
+      _authService.lastGoogleSignInCreatedUser;
 
   void togglePasswordVisibility() {
     _obscurePassword = !_obscurePassword;

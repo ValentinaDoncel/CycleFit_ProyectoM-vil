@@ -13,10 +13,12 @@ class AuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _googleSignInInitialized = false;
+  bool _lastGoogleSignInCreatedUser = false;
 
   UserModel? _currentUser;
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _firebaseAuth.currentUser != null;
+  bool get lastGoogleSignInCreatedUser => _lastGoogleSignInCreatedUser;
 
   /// Obtener el usuario actual del stream de Firebase Auth
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
@@ -175,6 +177,8 @@ class AuthService {
   Future<UserModel?> signInWithGoogle() async {
     try {
       final credential = await _googleCredential();
+      _lastGoogleSignInCreatedUser =
+          credential.additionalUserInfo?.isNewUser ?? false;
       final firebaseUser = credential.user;
       if (firebaseUser == null || firebaseUser.email == null) {
         throw Exception('No se pudo obtener el usuario de Google');
@@ -186,6 +190,8 @@ class AuthService {
 
       final userDoc = _usersCollection.doc(firebaseUser.uid);
       final docSnap = await userDoc.get();
+      _lastGoogleSignInCreatedUser =
+          _lastGoogleSignInCreatedUser || !docSnap.exists;
       final user = UserModel(
         id: firebaseUser.uid,
         nombre: firebaseUser.displayName ?? normalizedEmail.split('@')[0],

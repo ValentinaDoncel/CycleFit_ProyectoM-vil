@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cycle_fit/core/services/ai/gemini_tips_service.dart';
+import 'package:cycle_fit/core/services/auth/auth_service.dart';
 import 'package:cycle_fit/core/services/firebase/cycle_firestore_service.dart';
+import 'package:cycle_fit/core/services/firebase/feed_firestore_service.dart';
+import 'package:cycle_fit/core/services/firebase/feed_storage_service.dart';
 import 'package:cycle_fit/core/services/firebase/firebase_auth_service.dart';
 import 'package:cycle_fit/core/services/firebase/profile_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/symptoms_firestore_service.dart';
@@ -9,6 +13,7 @@ import 'package:cycle_fit/core/services/firebase/workouts_firestore_service.dart
 import 'package:cycle_fit/core/theme/app_colors.dart';
 import 'package:cycle_fit/models/app_models.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -16,18 +21,25 @@ class AppController extends ChangeNotifier {
     CycleFirestoreService? cycleService,
     SymptomsFirestoreService? symptomsService,
     WorkoutsFirestoreService? workoutsService,
+    FeedFirestoreService? feedService,
+    FeedStorageService? feedStorageService,
     GeminiTipsService? geminiTipsService,
-  })  : _profileService = profileService ?? const ProfileFirestoreService(),
-        _cycleService = cycleService ?? const CycleFirestoreService(),
-        _symptomsService = symptomsService ?? const SymptomsFirestoreService(),
-        _workoutsService = workoutsService ?? const WorkoutsFirestoreService(),
-        _geminiTipsService = geminiTipsService ?? const GeminiTipsService();
+  }) : _profileService = profileService ?? const ProfileFirestoreService(),
+       _cycleService = cycleService ?? const CycleFirestoreService(),
+       _symptomsService = symptomsService ?? const SymptomsFirestoreService(),
+       _workoutsService = workoutsService ?? const WorkoutsFirestoreService(),
+       _feedService = feedService ?? const FeedFirestoreService(),
+       _feedStorageService = feedStorageService ?? const FeedStorageService(),
+       _geminiTipsService = geminiTipsService ?? const GeminiTipsService();
 
   final ProfileFirestoreService _profileService;
   final CycleFirestoreService _cycleService;
   final SymptomsFirestoreService _symptomsService;
   final WorkoutsFirestoreService _workoutsService;
+  final FeedFirestoreService _feedService;
+  final FeedStorageService _feedStorageService;
   final GeminiTipsService _geminiTipsService;
+  final AuthService _authService = AuthService();
 
   AppTab _selectedTab = AppTab.home;
   final DateTime _today = _currentDateOnly();
@@ -36,6 +48,8 @@ class AppController extends ChangeNotifier {
   CycleData _cycleData = CycleData.initial();
   List<WorkoutData> _workouts = const [];
   List<SymptomRecordData> _recentSymptoms = const [];
+  List<FeedPostData> _feedPosts = const [];
+  WorkoutData? _pendingWorkoutTemplate;
   double _energyLevel = 50;
   final Set<String> _selectedMoodKeys = {};
   final Set<String> _selectedSymptomKeys = {};
@@ -50,44 +64,142 @@ class AppController extends ChangeNotifier {
   bool _isSavingSymptoms = false;
   bool _isSavingProfile = false;
   bool _isSavingWorkout = false;
+  bool _isSavingPost = false;
+  bool _isLoadingFeed = false;
   bool _isRefreshingTips = false;
   String? _userId;
   String? _lastError;
   String? _tipsError;
 
   static const List<Map<String, dynamic>> _moodCatalog = [
-    {'key': 'calmada', 'label': 'Calmada', 'icon': Icons.favorite_border_rounded},
-    {'key': 'feliz', 'label': 'Feliz', 'icon': Icons.sentiment_satisfied_alt_outlined},
+    {
+      'key': 'calmada',
+      'label': 'Calmada',
+      'icon': Icons.favorite_border_rounded,
+    },
+    {
+      'key': 'feliz',
+      'label': 'Feliz',
+      'icon': Icons.sentiment_satisfied_alt_outlined,
+    },
     {'key': 'energica', 'label': 'Enérgica', 'icon': Icons.bolt_rounded},
-    {'key': 'coqueta', 'label': 'Coqueta', 'icon': Icons.favorite_outline_rounded},
-    {'key': 'humor', 'label': 'Cambios de\nhumor', 'icon': Icons.mood_bad_outlined},
-    {'key': 'irritable', 'label': 'Irritable', 'icon': Icons.sentiment_dissatisfied_outlined},
-    {'key': 'triste', 'label': 'Triste', 'icon': Icons.sentiment_neutral_outlined},
+    {
+      'key': 'coqueta',
+      'label': 'Coqueta',
+      'icon': Icons.favorite_outline_rounded,
+    },
+    {
+      'key': 'humor',
+      'label': 'Cambios de\nhumor',
+      'icon': Icons.mood_bad_outlined,
+    },
+    {
+      'key': 'irritable',
+      'label': 'Irritable',
+      'icon': Icons.sentiment_dissatisfied_outlined,
+    },
+    {
+      'key': 'triste',
+      'label': 'Triste',
+      'icon': Icons.sentiment_neutral_outlined,
+    },
     {'key': 'ansiosa', 'label': 'Ansiosa', 'icon': Icons.warning_amber_rounded},
-    {'key': 'deprimida', 'label': 'Deprimida', 'icon': Icons.self_improvement_outlined},
-    {'key': 'culpa', 'label': 'Sentimientos\nde culpa', 'icon': Icons.psychology_alt_outlined},
-    {'key': 'obsesivos', 'label': 'Pensamientos\nobsesivos', 'icon': Icons.psychology_outlined},
-    {'key': 'baja_energia', 'label': 'Baja energía', 'icon': Icons.battery_1_bar_rounded},
-    {'key': 'apatica', 'label': 'Apática', 'icon': Icons.accessibility_new_outlined},
-    {'key': 'confundida', 'label': 'Confundida', 'icon': Icons.change_circle_outlined},
-    {'key': 'autocritica', 'label': 'Muy\nautocrítica', 'icon': Icons.error_outline_rounded},
+    {
+      'key': 'deprimida',
+      'label': 'Deprimida',
+      'icon': Icons.self_improvement_outlined,
+    },
+    {
+      'key': 'culpa',
+      'label': 'Sentimientos\nde culpa',
+      'icon': Icons.psychology_alt_outlined,
+    },
+    {
+      'key': 'obsesivos',
+      'label': 'Pensamientos\nobsesivos',
+      'icon': Icons.psychology_outlined,
+    },
+    {
+      'key': 'baja_energia',
+      'label': 'Baja energía',
+      'icon': Icons.battery_1_bar_rounded,
+    },
+    {
+      'key': 'apatica',
+      'label': 'Apática',
+      'icon': Icons.accessibility_new_outlined,
+    },
+    {
+      'key': 'confundida',
+      'label': 'Confundida',
+      'icon': Icons.change_circle_outlined,
+    },
+    {
+      'key': 'autocritica',
+      'label': 'Muy\nautocrítica',
+      'icon': Icons.error_outline_rounded,
+    },
   ];
 
   static const List<Map<String, dynamic>> _symptomCatalog = [
-    {'key': 'todo_bien', 'label': 'Todo está bien', 'icon': Icons.check_circle_outline_rounded},
+    {
+      'key': 'todo_bien',
+      'label': 'Todo está bien',
+      'icon': Icons.check_circle_outline_rounded,
+    },
     {'key': 'colicos', 'label': 'Cólicos', 'icon': Icons.show_chart_rounded},
-    {'key': 'senos_sensibles', 'label': 'Senos\nsensibles', 'icon': Icons.favorite_border_rounded},
-    {'key': 'dolor_cabeza', 'label': 'Dolor de\ncabeza', 'icon': Icons.psychology_alt_outlined},
-    {'key': 'acne', 'label': 'Acné', 'icon': Icons.face_retouching_natural_outlined},
-    {'key': 'dolor_espalda', 'label': 'Dolor de\nespalda', 'icon': Icons.show_chart_outlined},
+    {
+      'key': 'senos_sensibles',
+      'label': 'Senos\nsensibles',
+      'icon': Icons.favorite_border_rounded,
+    },
+    {
+      'key': 'dolor_cabeza',
+      'label': 'Dolor de\ncabeza',
+      'icon': Icons.psychology_alt_outlined,
+    },
+    {
+      'key': 'acne',
+      'label': 'Acné',
+      'icon': Icons.face_retouching_natural_outlined,
+    },
+    {
+      'key': 'dolor_espalda',
+      'label': 'Dolor de\nespalda',
+      'icon': Icons.show_chart_outlined,
+    },
     {'key': 'fatiga', 'label': 'Fatiga', 'icon': Icons.battery_alert_outlined},
     {'key': 'antojos', 'label': 'Antojos', 'icon': Icons.apple_rounded},
-    {'key': 'insomnio', 'label': 'Insomnio', 'icon': Icons.brightness_2_outlined},
-    {'key': 'dolor_abdominal', 'label': 'Dolor\nabdominal', 'icon': Icons.sick_outlined},
-    {'key': 'picazon', 'label': 'Picazón\nvaginal', 'icon': Icons.warning_amber_rounded},
-    {'key': 'sequedad', 'label': 'Sequedad\nvaginal', 'icon': Icons.air_rounded},
-    {'key': 'sofocos', 'label': 'Sofocos', 'icon': Icons.local_fire_department_outlined},
-    {'key': 'sudores', 'label': 'Sudores\nnocturnos', 'icon': Icons.grain_outlined},
+    {
+      'key': 'insomnio',
+      'label': 'Insomnio',
+      'icon': Icons.brightness_2_outlined,
+    },
+    {
+      'key': 'dolor_abdominal',
+      'label': 'Dolor\nabdominal',
+      'icon': Icons.sick_outlined,
+    },
+    {
+      'key': 'picazon',
+      'label': 'Picazón\nvaginal',
+      'icon': Icons.warning_amber_rounded,
+    },
+    {
+      'key': 'sequedad',
+      'label': 'Sequedad\nvaginal',
+      'icon': Icons.air_rounded,
+    },
+    {
+      'key': 'sofocos',
+      'label': 'Sofocos',
+      'icon': Icons.local_fire_department_outlined,
+    },
+    {
+      'key': 'sudores',
+      'label': 'Sudores\nnocturnos',
+      'icon': Icons.grain_outlined,
+    },
   ];
 
   AppTab get selectedTab => _selectedTab;
@@ -95,6 +207,8 @@ class AppController extends ChangeNotifier {
   bool get isSavingSymptoms => _isSavingSymptoms;
   bool get isSavingProfile => _isSavingProfile;
   bool get isSavingWorkout => _isSavingWorkout;
+  bool get isSavingPost => _isSavingPost;
+  bool get isLoadingFeed => _isLoadingFeed;
   bool get isRefreshingTips => _isRefreshingTips;
   String? get lastError => _lastError;
   String? get tipsError => _tipsError;
@@ -119,6 +233,7 @@ class AppController extends ChangeNotifier {
         _symptomsService.getRecordForDay(user.uid, _today),
         _symptomsService.getRecentRecords(user.uid, limit: 8),
         _workoutsService.getWorkouts(user.uid),
+        _feedService.getPosts(),
       ]);
 
       _profile = results[0] as UserProfileData;
@@ -127,6 +242,7 @@ class AppController extends ChangeNotifier {
       final todayRecord = results[2] as SymptomRecordData?;
       _recentSymptoms = results[3] as List<SymptomRecordData>;
       _workouts = results[4] as List<WorkoutData>;
+      _feedPosts = results[5] as List<FeedPostData>;
 
       if (todayRecord != null) {
         _energyLevel = todayRecord.energyLevel;
@@ -138,12 +254,8 @@ class AppController extends ChangeNotifier {
           ..addAll(todayRecord.symptomKeys);
       } else {
         _energyLevel = 50;
-        _selectedMoodKeys
-          ..clear()
-          ..addAll({'calmada', 'feliz'});
-        _selectedSymptomKeys
-          ..clear()
-          ..addAll({'todo_bien'});
+        _selectedMoodKeys.clear();
+        _selectedSymptomKeys.clear();
       }
     } catch (error) {
       _lastError = error.toString();
@@ -166,13 +278,14 @@ class AppController extends ChangeNotifier {
   int get currentCycleDay => _cycleDayForDate(_today);
   String get currentPhaseLabel => _phaseLabel(_phaseForDate(_today));
   String get nextPeriodLabel => _formatDate(
-        _cycleData.periodStartDate.add(Duration(days: _cycleData.cycleLength)),
-      );
+    _cycleData.periodStartDate.add(Duration(days: _cycleData.cycleLength)),
+  );
   String get previousPeriodLabel => _formatDate(_cycleData.periodStartDate);
   String get profileName => _profile.name;
   String get profileFirstName => _profile.name.split(' ').first;
   String get profileEmail => _profile.email;
   String get profileAvatarUrl => _profile.avatarUrl;
+  bool get hasProfileAvatar => _profile.avatarUrl.trim().isNotEmpty;
   int get workoutsCount => _workouts.length;
   int get totalWorkoutMinutes =>
       _workouts.fold(0, (sum, item) => sum + item.durationMinutes);
@@ -302,7 +415,10 @@ class AppController extends ChangeNotifier {
         symptomKeys: _selectedSymptomKeys.toList()..sort(),
       );
       await _symptomsService.saveRecord(_userId!, record);
-      _recentSymptoms = await _symptomsService.getRecentRecords(_userId!, limit: 8);
+      _recentSymptoms = await _symptomsService.getRecentRecords(
+        _userId!,
+        limit: 8,
+      );
       _tipsError = null;
     } finally {
       _isSavingSymptoms = false;
@@ -330,6 +446,7 @@ class AppController extends ChangeNotifier {
     required String intensity,
     required int durationMinutes,
     required int calories,
+    Map<String, List<String>> exerciseGroups = const {},
     DateTime? date,
   }) async {
     if (_userId == null) return;
@@ -346,6 +463,7 @@ class AppController extends ChangeNotifier {
           durationMinutes: durationMinutes,
           calories: calories,
           date: date ?? _today,
+          exerciseGroups: exerciseGroups,
         ),
       );
       _workouts = await _workoutsService.getWorkouts(_userId!);
@@ -354,6 +472,145 @@ class AppController extends ChangeNotifier {
       notifyListeners();
       unawaited(refreshAiTips());
     }
+  }
+
+  Future<void> refreshFeed() async {
+    _isLoadingFeed = true;
+    notifyListeners();
+    try {
+      _feedPosts = await _feedService.getPosts();
+    } finally {
+      _isLoadingFeed = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> createFeedPost({required String content, XFile? image}) async {
+    if (_userId == null) return;
+    final trimmed = content.trim();
+    if (trimmed.isEmpty && image == null) return;
+    _isSavingPost = true;
+    notifyListeners();
+    try {
+      String? imageUrl;
+      if (image != null) {
+        imageUrl = await _uploadImageWithFallback(image);
+      }
+      await _feedService.createPost(
+        FeedPostData(
+          id: '',
+          authorId: _userId!,
+          authorName: _profile.name,
+          content: trimmed,
+          imageUrl: imageUrl,
+          createdAt: DateTime.now(),
+        ),
+      );
+      _feedPosts = await _feedService.getPosts();
+    } finally {
+      _isSavingPost = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> shareWorkoutToFeed(WorkoutData workout, String content) async {
+    if (_userId == null) return;
+    _isSavingPost = true;
+    notifyListeners();
+    try {
+      await _feedService.createPost(
+        FeedPostData(
+          id: '',
+          authorId: _userId!,
+          authorName: _profile.name,
+          content: content.trim().isEmpty
+              ? 'Complete ${workout.title}.'
+              : content.trim(),
+          workoutTitle: workout.title,
+          workoutExercises: workout.exerciseNames,
+          createdAt: DateTime.now(),
+        ),
+      );
+      _feedPosts = await _feedService.getPosts();
+    } finally {
+      _isSavingPost = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleFeedLike(PostModel post) async {
+    if (_userId == null) return;
+    await _feedService.toggleLike(
+      postId: post.id,
+      uid: _userId!,
+      isLiked: post.isLikedByCurrentUser,
+    );
+    _feedPosts = await _feedService.getPosts();
+    notifyListeners();
+  }
+
+  Future<List<FeedCommentData>> getFeedComments(String postId) {
+    return _feedService.getComments(postId);
+  }
+
+  Future<void> addFeedComment({
+    required String postId,
+    required String content,
+  }) async {
+    if (_userId == null || content.trim().isEmpty) return;
+    await _feedService.addComment(
+      postId: postId,
+      comment: FeedCommentData(
+        id: '',
+        authorId: _userId!,
+        authorName: _profile.name,
+        content: content.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
+    _feedPosts = await _feedService.getPosts();
+    notifyListeners();
+  }
+
+  Future<String?> _uploadImageWithFallback(XFile image) async {
+    try {
+      return await _feedStorageService.uploadPostImage(
+        uid: _userId!,
+        image: image,
+      );
+    } catch (_) {
+      final bytes = await image.readAsBytes();
+      if (bytes.length > 850000) rethrow;
+      final mime = image.mimeType ?? 'image/jpeg';
+      return 'data:$mime;base64,${base64Encode(bytes)}';
+    }
+  }
+
+  void useFeedWorkout(PostModel post) {
+    if (post.workoutTitle == null) return;
+    _pendingWorkoutTemplate = WorkoutData(
+      id: '',
+      title: post.workoutTitle!,
+      intensity: 'Media',
+      durationMinutes: 30,
+      calories: 200,
+      date: _today,
+      exerciseGroups: {'Compartido': post.workoutExercises},
+    );
+    selectTab(AppTab.exercise);
+  }
+
+  WorkoutData? consumePendingWorkoutTemplate() {
+    final template = _pendingWorkoutTemplate;
+    _pendingWorkoutTemplate = null;
+    return template;
+  }
+
+  Future<void> logout() async {
+    await _authService.logout();
+    _userId = null;
+    _selectedTab = AppTab.home;
+    notifyListeners();
   }
 
   void goToPreviousMonth() {
@@ -432,51 +689,54 @@ class AppController extends ChangeNotifier {
   }
 
   List<QuickActionModel> get quickActions => const [
-        QuickActionModel(
-          title: 'Síntomas',
-          subtitle: 'Registrar hoy',
-          icon: Icons.favorite_border_rounded,
-          targetTab: AppTab.symptoms,
-        ),
-        QuickActionModel(
-          title: 'Entrenar',
-          subtitle: 'Nuevo registro',
-          icon: Icons.fitness_center_rounded,
-          targetTab: AppTab.exercise,
-        ),
-      ];
+    QuickActionModel(
+      title: 'Síntomas',
+      subtitle: 'Registrar hoy',
+      icon: Icons.favorite_border_rounded,
+      targetTab: AppTab.symptoms,
+    ),
+    QuickActionModel(
+      title: 'Entrenar',
+      subtitle: 'Nuevo registro',
+      icon: Icons.fitness_center_rounded,
+      targetTab: AppTab.exercise,
+    ),
+  ];
 
   List<PhaseLegendItem> get phaseLegend => const [
-        PhaseLegendItem(
-          title: 'Menstrual',
-          days: 'Días 1-5',
-          icon: Icons.water_drop_outlined,
-          color: Color(0xFFFF3E45),
-        ),
-        PhaseLegendItem(
-          title: 'Folicular',
-          days: 'Días 6-11',
-          icon: Icons.wb_sunny_outlined,
-          color: Color(0xFF09C754),
-        ),
-        PhaseLegendItem(
-          title: 'Ovulatoria',
-          days: 'Días 12-16',
-          icon: Icons.brightness_3_outlined,
-          color: Color(0xFFA645F8),
-        ),
-        PhaseLegendItem(
-          title: 'Lútea',
-          days: 'Días 17-28',
-          icon: Icons.show_chart_rounded,
-          color: Color(0xFFF4B200),
-        ),
-      ];
+    PhaseLegendItem(
+      title: 'Menstrual',
+      days: 'Días 1-5',
+      icon: Icons.water_drop_outlined,
+      color: Color(0xFFFF3E45),
+    ),
+    PhaseLegendItem(
+      title: 'Folicular',
+      days: 'Días 6-11',
+      icon: Icons.wb_sunny_outlined,
+      color: Color(0xFF09C754),
+    ),
+    PhaseLegendItem(
+      title: 'Ovulatoria',
+      days: 'Días 12-16',
+      icon: Icons.brightness_3_outlined,
+      color: Color(0xFFA645F8),
+    ),
+    PhaseLegendItem(
+      title: 'Lútea',
+      days: 'Días 17-28',
+      icon: Icons.show_chart_rounded,
+      color: Color(0xFFF4B200),
+    ),
+  ];
 
   List<CalendarDayModel> get calendarDays {
     final firstDay = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
-    final totalDays =
-        DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    final totalDays = DateTime(
+      _visibleMonth.year,
+      _visibleMonth.month + 1,
+      0,
+    ).day;
     final leadingSlots = firstDay.weekday % 7;
     final items = <CalendarDayModel>[];
 
@@ -528,31 +788,40 @@ class AppController extends ChangeNotifier {
       .toList();
 
   List<HistoryEntryModel> get symptomsHistory => _recentSymptoms.map((record) {
-        return HistoryEntryModel(
-          title: '${record.date.day} ${_monthShort(record.date.month)}',
-          subtitle:
-              'Energía: ${record.energyLevel.round()}% • Síntomas: ${record.symptomKeys.length}',
-          trailing: '',
-          icon: Icons.favorite_border_rounded,
-          highlightColor: AppColors.primary,
-        );
-      }).toList();
+    return HistoryEntryModel(
+      title: '${record.date.day} ${_monthShort(record.date.month)}',
+      subtitle:
+          'Energía: ${record.energyLevel.round()}% • Síntomas: ${record.symptomKeys.length}',
+      trailing: '',
+      icon: Icons.favorite_border_rounded,
+      highlightColor: AppColors.primary,
+    );
+  }).toList();
 
   List<WorkoutBarModel> get workoutWeek {
     final startOfWeek = _today.subtract(Duration(days: _today.weekday - 1));
     final totals = List<int>.filled(7, 0);
 
     for (final workout in _workouts) {
-      final workoutDay = DateTime(workout.date.year, workout.date.month, workout.date.day);
-      final diff = workoutDay.difference(
-        DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
-      ).inDays;
+      final workoutDay = DateTime(
+        workout.date.year,
+        workout.date.month,
+        workout.date.day,
+      );
+      final diff = workoutDay
+          .difference(
+            DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day),
+          )
+          .inDays;
       if (diff >= 0 && diff < 7) {
         totals[diff] += workout.durationMinutes;
       }
     }
 
-    final maxMinutes = totals.fold<int>(1, (current, next) => next > current ? next : current);
+    final maxMinutes = totals.fold<int>(
+      1,
+      (current, next) => next > current ? next : current,
+    );
     const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
     return List.generate(7, (index) {
@@ -565,230 +834,229 @@ class AppController extends ChangeNotifier {
     });
   }
 
-  List<HistoryEntryModel> get workoutHistory => _workouts.take(6).map((workout) {
-        return HistoryEntryModel(
-          title: workout.title,
-          subtitle:
-              '${workout.date.day} ${_monthShort(workout.date.month)} • ${workout.durationMinutes} min • ${workout.calories} kcal',
-          trailing: workout.intensity,
-          icon: Icons.fitness_center_rounded,
-          highlightColor: _intensityColor(workout.intensity),
-        );
-      }).toList();
+  List<HistoryEntryModel> get workoutHistory => _workouts.take(6).map((
+    workout,
+  ) {
+    return HistoryEntryModel(
+      title: workout.title,
+      subtitle:
+          '${workout.date.day} ${_monthShort(workout.date.month)} • ${workout.durationMinutes} min • ${workout.calories} kcal',
+      trailing: workout.intensity,
+      icon: Icons.fitness_center_rounded,
+      highlightColor: _intensityColor(workout.intensity),
+    );
+  }).toList();
 
-  List<PostModel> get posts => const [
-        PostModel(
-          author: 'María García',
-          timeAgo: 'Hace 2 horas',
-          content:
-              '¡Completé mi entrenamiento de cardio hoy! Me siento increíble durante mi fase ovulatoria 💪✨',
-          avatar: 'MG',
-          likes: 24,
-          comments: 1,
-          imageUrl:
-              'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80',
-        ),
-        PostModel(
-          author: 'Laura Martínez',
-          timeAgo: 'Hace 5 horas',
-          content:
-              'Día de yoga suave. Escuchando a mi cuerpo durante la fase lútea 🙏',
-          avatar: 'LM',
-          likes: 18,
-          comments: 0,
-        ),
-      ];
+  List<WorkoutData> get recentWorkouts => _workouts.take(12).toList();
+
+  List<PostModel> get posts => _feedPosts.map((post) {
+    final liked = _userId != null && post.likedBy.contains(_userId);
+    return PostModel(
+      id: post.id,
+      author: post.authorName,
+      timeAgo: _timeAgo(post.createdAt),
+      content: post.content,
+      avatar: _initialsFor(post.authorName),
+      likes: post.likedBy.length,
+      comments: post.commentsCount,
+      imageUrl: post.imageUrl,
+      workoutTitle: post.workoutTitle,
+      workoutExercises: post.workoutExercises,
+      isLikedByCurrentUser: liked,
+    );
+  }).toList();
 
   List<TipHeroModel> get tipHeroes => _aiTipHeroes ?? _defaultTipHeroes;
 
   static const List<TipHeroModel> _defaultTipHeroes = [
-        TipHeroModel(
-          id: 'hydration',
-          title: 'Hidratación',
-          subtitle: 'Has alcanzado tu meta de agua 5 días seguidos. ¡Sigue así!',
-          badge: 'Hidratación',
-          icon: Icons.opacity_rounded,
-          backgroundColor: Color(0xFF15A9E8),
-        ),
-        TipHeroModel(
-          id: 'nutrition',
-          title: 'Nutrición',
-          subtitle: 'Incluye alimentos verdes para prepararte mejor en esta fase.',
-          badge: 'Nutrición',
-          icon: Icons.eco_rounded,
-          backgroundColor: Color(0xFF10C55A),
-        ),
-        TipHeroModel(
-          id: 'exercise',
-          title: 'Entrenamiento',
-          subtitle: 'Tu energía está alta: aprovecha sesiones cortas e intensas.',
-          badge: 'Ejercicio',
-          icon: Icons.bolt_rounded,
-          backgroundColor: Color(0xFFFF6E63),
-        ),
-      ];
+    TipHeroModel(
+      id: 'hydration',
+      title: 'Hidratación',
+      subtitle: 'Has alcanzado tu meta de agua 5 días seguidos. ¡Sigue así!',
+      badge: 'Hidratación',
+      icon: Icons.opacity_rounded,
+      backgroundColor: Color(0xFF15A9E8),
+    ),
+    TipHeroModel(
+      id: 'nutrition',
+      title: 'Nutrición',
+      subtitle: 'Incluye alimentos verdes para prepararte mejor en esta fase.',
+      badge: 'Nutrición',
+      icon: Icons.eco_rounded,
+      backgroundColor: Color(0xFF10C55A),
+    ),
+    TipHeroModel(
+      id: 'exercise',
+      title: 'Entrenamiento',
+      subtitle: 'Tu energía está alta: aprovecha sesiones cortas e intensas.',
+      badge: 'Ejercicio',
+      icon: Icons.bolt_rounded,
+      backgroundColor: Color(0xFFFF6E63),
+    ),
+  ];
 
-  List<TipInsightModel> get tipInsights => _aiTipInsights ?? _defaultTipInsights;
+  List<TipInsightModel> get tipInsights =>
+      _aiTipInsights ?? _defaultTipInsights;
 
   static const List<TipInsightModel> _defaultTipInsights = [
-        TipInsightModel(
-          title: 'Tu patrón de energía',
-          description:
-              'Hemos notado que tu energía es más alta entre las fases folicular y ovulatoria. Planifica tus actividades importantes en estos días.',
-          progress: 0.85,
-          icon: Icons.bolt_rounded,
-        ),
-        TipInsightModel(
-          title: 'Consistencia en entrenamientos',
-          description:
-              'Has mantenido 4-5 entrenamientos semanales. ¡Excelente! Esto contribuye a regular tu ciclo hormonal.',
-          progress: 0.92,
-          icon: Icons.trending_up_rounded,
-        ),
-        TipInsightModel(
-          title: 'Mejora en síntomas',
-          description:
-              'Tus registros muestran una reducción del 30% en dolor durante los últimos 3 ciclos. Sigue así.',
-          progress: 0.70,
-          icon: Icons.favorite_border_rounded,
-        ),
-      ];
+    TipInsightModel(
+      title: 'Tu patrón de energía',
+      description:
+          'Hemos notado que tu energía es más alta entre las fases folicular y ovulatoria. Planifica tus actividades importantes en estos días.',
+      progress: 0.85,
+      icon: Icons.bolt_rounded,
+    ),
+    TipInsightModel(
+      title: 'Consistencia en entrenamientos',
+      description:
+          'Has mantenido 4-5 entrenamientos semanales. ¡Excelente! Esto contribuye a regular tu ciclo hormonal.',
+      progress: 0.92,
+      icon: Icons.trending_up_rounded,
+    ),
+    TipInsightModel(
+      title: 'Mejora en síntomas',
+      description:
+          'Tus registros muestran una reducción del 30% en dolor durante los últimos 3 ciclos. Sigue así.',
+      progress: 0.70,
+      icon: Icons.favorite_border_rounded,
+    ),
+  ];
 
   List<TipRecommendationModel> get _tipsCatalog =>
       _aiTipRecommendations ?? _defaultTipsCatalog;
 
   static const List<TipRecommendationModel> _defaultTipsCatalog = [
-        TipRecommendationModel(
-          id: 'nutri_proteinas',
-          section: 'Nutrición',
-          title: 'Aumenta proteínas',
-          description:
-              'Durante la fase ovulatoria, tu metabolismo está más activo. Consume proteínas de calidad para mantener energía estable y favorecer la recuperación.',
-          icon: Icons.apple_rounded,
-          tint: Color(0xFFD9F9E4),
-          sectionColor: Color(0xFF10C55A),
-        ),
-        TipRecommendationModel(
-          id: 'nutri_calcio',
-          section: 'Nutrición',
-          title: 'Alimentos ricos en calcio',
-          description:
-              'El calcio ayuda a reducir los síntomas premenstruales. Incluye lácteos, almendras y vegetales de hoja verde.',
-          icon: Icons.apple_rounded,
-          tint: Color(0xFFD9F9E4),
-          sectionColor: Color(0xFF10C55A),
-        ),
-        TipRecommendationModel(
-          id: 'nutri_omega',
-          section: 'Nutrición',
-          title: 'Omega-3 para el equilibrio',
-          description:
-              'Los ácidos grasos Omega-3 ayudan a reducir la inflamación y los calambres menstruales.',
-          icon: Icons.apple_rounded,
-          tint: Color(0xFFD9F9E4),
-          sectionColor: Color(0xFF10C55A),
-        ),
-        TipRecommendationModel(
-          id: 'rest_horario',
-          section: 'Descanso',
-          title: 'Mantén un horario regular',
-          description:
-              'Dormir y despertar a las mismas horas ayuda a regular tus hormonas y mejora la calidad del sueño.',
-          icon: Icons.nightlight_round,
-          tint: Color(0xFFF0E2FF),
-          sectionColor: Color(0xFFA445F7),
-        ),
-        TipRecommendationModel(
-          id: 'rest_cafeina',
-          section: 'Descanso',
-          title: 'Evita cafeína tarde',
-          description:
-              'Limita el consumo de cafeína después de las 4 PM para mejorar la calidad de tu descanso nocturno.',
-          icon: Icons.nightlight_round,
-          tint: Color(0xFFF0E2FF),
-          sectionColor: Color(0xFFA445F7),
-        ),
-        TipRecommendationModel(
-          id: 'fit_energia',
-          section: 'Actividad física',
-          title: 'Aprovecha tu energía',
-          description:
-              'Estás en tu punto máximo de energía. Es el momento ideal para entrenamientos de alta intensidad o probando nuevas rutinas.',
-          icon: Icons.fitness_center_rounded,
-          tint: Color(0xFFFFE0E0),
-          sectionColor: Color(0xFFFF564E),
-        ),
-        TipRecommendationModel(
-          id: 'fit_fuerza',
-          section: 'Actividad física',
-          title: 'Fuerza y resistencia',
-          description:
-              'Tu fuerza muscular está aumentada. Enfócate en ejercicios de fuerza y entrenamiento de resistencia.',
-          icon: Icons.fitness_center_rounded,
-          tint: Color(0xFFFFE0E0),
-          sectionColor: Color(0xFFFF564E),
-        ),
-        TipRecommendationModel(
-          id: 'fit_cuerpo',
-          section: 'Actividad física',
-          title: 'Escucha tu cuerpo',
-          description:
-              'Ajusta la intensidad según tu fase. En fase lútea, opta por yoga, pilates o caminatas.',
-          icon: Icons.fitness_center_rounded,
-          tint: Color(0xFFFFE0E0),
-          sectionColor: Color(0xFFFF564E),
-        ),
-        TipRecommendationModel(
-          id: 'hidra_agua',
-          section: 'Hidratación',
-          title: 'Bebe 2-3 litros diarios',
-          description:
-              'La hidratación adecuada ayuda a reducir la retención de líquidos y mejora tu energía general.',
-          icon: Icons.opacity_rounded,
-          tint: Color(0xFFDCEAFF),
-          sectionColor: Color(0xFF377EF7),
-        ),
-        TipRecommendationModel(
-          id: 'hidra_infusiones',
-          section: 'Hidratación',
-          title: 'Infusiones naturales',
-          description:
-              'Las infusiones de jengibre o manzanilla pueden ayudar con los calambres y la inflamación.',
-          icon: Icons.opacity_rounded,
-          tint: Color(0xFFDCEAFF),
-          sectionColor: Color(0xFF377EF7),
-        ),
-        TipRecommendationModel(
-          id: 'hidra_electrolitos',
-          section: 'Hidratación',
-          title: 'Electrolitos naturales',
-          description:
-              'Agua de coco o bebidas con electrolitos naturales para recuperación post-entrenamiento.',
-          icon: Icons.opacity_rounded,
-          tint: Color(0xFFDCEAFF),
-          sectionColor: Color(0xFF377EF7),
-        ),
-        TipRecommendationModel(
-          id: 'mind_meditacion',
-          section: 'Bienestar mental',
-          title: 'Meditación diaria',
-          description:
-              '10-15 minutos de meditación ayudan a reducir el estrés y equilibrar tus hormonas.',
-          icon: Icons.spa_outlined,
-          tint: Color(0xFFFFE0F2),
-          sectionColor: Color(0xFFFF3D96),
-        ),
-        TipRecommendationModel(
-          id: 'mind_journal',
-          section: 'Bienestar mental',
-          title: 'Journaling emocional',
-          description:
-              'Registra tus emociones diarias para identificar patrones y manejar mejor los cambios de humor.',
-          icon: Icons.spa_outlined,
-          tint: Color(0xFFFFE0F2),
-          sectionColor: Color(0xFFFF3D96),
-        ),
-      ];
+    TipRecommendationModel(
+      id: 'nutri_proteinas',
+      section: 'Nutrición',
+      title: 'Aumenta proteínas',
+      description:
+          'Durante la fase ovulatoria, tu metabolismo está más activo. Consume proteínas de calidad para mantener energía estable y favorecer la recuperación.',
+      icon: Icons.apple_rounded,
+      tint: Color(0xFFD9F9E4),
+      sectionColor: Color(0xFF10C55A),
+    ),
+    TipRecommendationModel(
+      id: 'nutri_calcio',
+      section: 'Nutrición',
+      title: 'Alimentos ricos en calcio',
+      description:
+          'El calcio ayuda a reducir los síntomas premenstruales. Incluye lácteos, almendras y vegetales de hoja verde.',
+      icon: Icons.apple_rounded,
+      tint: Color(0xFFD9F9E4),
+      sectionColor: Color(0xFF10C55A),
+    ),
+    TipRecommendationModel(
+      id: 'nutri_omega',
+      section: 'Nutrición',
+      title: 'Omega-3 para el equilibrio',
+      description:
+          'Los ácidos grasos Omega-3 ayudan a reducir la inflamación y los calambres menstruales.',
+      icon: Icons.apple_rounded,
+      tint: Color(0xFFD9F9E4),
+      sectionColor: Color(0xFF10C55A),
+    ),
+    TipRecommendationModel(
+      id: 'rest_horario',
+      section: 'Descanso',
+      title: 'Mantén un horario regular',
+      description:
+          'Dormir y despertar a las mismas horas ayuda a regular tus hormonas y mejora la calidad del sueño.',
+      icon: Icons.nightlight_round,
+      tint: Color(0xFFF0E2FF),
+      sectionColor: Color(0xFFA445F7),
+    ),
+    TipRecommendationModel(
+      id: 'rest_cafeina',
+      section: 'Descanso',
+      title: 'Evita cafeína tarde',
+      description:
+          'Limita el consumo de cafeína después de las 4 PM para mejorar la calidad de tu descanso nocturno.',
+      icon: Icons.nightlight_round,
+      tint: Color(0xFFF0E2FF),
+      sectionColor: Color(0xFFA445F7),
+    ),
+    TipRecommendationModel(
+      id: 'fit_energia',
+      section: 'Actividad física',
+      title: 'Aprovecha tu energía',
+      description:
+          'Estás en tu punto máximo de energía. Es el momento ideal para entrenamientos de alta intensidad o probando nuevas rutinas.',
+      icon: Icons.fitness_center_rounded,
+      tint: Color(0xFFFFE0E0),
+      sectionColor: Color(0xFFFF564E),
+    ),
+    TipRecommendationModel(
+      id: 'fit_fuerza',
+      section: 'Actividad física',
+      title: 'Fuerza y resistencia',
+      description:
+          'Tu fuerza muscular está aumentada. Enfócate en ejercicios de fuerza y entrenamiento de resistencia.',
+      icon: Icons.fitness_center_rounded,
+      tint: Color(0xFFFFE0E0),
+      sectionColor: Color(0xFFFF564E),
+    ),
+    TipRecommendationModel(
+      id: 'fit_cuerpo',
+      section: 'Actividad física',
+      title: 'Escucha tu cuerpo',
+      description:
+          'Ajusta la intensidad según tu fase. En fase lútea, opta por yoga, pilates o caminatas.',
+      icon: Icons.fitness_center_rounded,
+      tint: Color(0xFFFFE0E0),
+      sectionColor: Color(0xFFFF564E),
+    ),
+    TipRecommendationModel(
+      id: 'hidra_agua',
+      section: 'Hidratación',
+      title: 'Bebe 2-3 litros diarios',
+      description:
+          'La hidratación adecuada ayuda a reducir la retención de líquidos y mejora tu energía general.',
+      icon: Icons.opacity_rounded,
+      tint: Color(0xFFDCEAFF),
+      sectionColor: Color(0xFF377EF7),
+    ),
+    TipRecommendationModel(
+      id: 'hidra_infusiones',
+      section: 'Hidratación',
+      title: 'Infusiones naturales',
+      description:
+          'Las infusiones de jengibre o manzanilla pueden ayudar con los calambres y la inflamación.',
+      icon: Icons.opacity_rounded,
+      tint: Color(0xFFDCEAFF),
+      sectionColor: Color(0xFF377EF7),
+    ),
+    TipRecommendationModel(
+      id: 'hidra_electrolitos',
+      section: 'Hidratación',
+      title: 'Electrolitos naturales',
+      description:
+          'Agua de coco o bebidas con electrolitos naturales para recuperación post-entrenamiento.',
+      icon: Icons.opacity_rounded,
+      tint: Color(0xFFDCEAFF),
+      sectionColor: Color(0xFF377EF7),
+    ),
+    TipRecommendationModel(
+      id: 'mind_meditacion',
+      section: 'Bienestar mental',
+      title: 'Meditación diaria',
+      description:
+          '10-15 minutos de meditación ayudan a reducir el estrés y equilibrar tus hormonas.',
+      icon: Icons.spa_outlined,
+      tint: Color(0xFFFFE0F2),
+      sectionColor: Color(0xFFFF3D96),
+    ),
+    TipRecommendationModel(
+      id: 'mind_journal',
+      section: 'Bienestar mental',
+      title: 'Journaling emocional',
+      description:
+          'Registra tus emociones diarias para identificar patrones y manejar mejor los cambios de humor.',
+      icon: Icons.spa_outlined,
+      tint: Color(0xFFFFE0F2),
+      sectionColor: Color(0xFFFF3D96),
+    ),
+  ];
 
   List<TipRecommendationModel> get filteredTips {
     return tipsForFilter(_tipsFilter);
@@ -818,7 +1086,9 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  Map<String, List<TipRecommendationModel>> groupedTipsForFilter(String filter) {
+  Map<String, List<TipRecommendationModel>> groupedTipsForFilter(
+    String filter,
+  ) {
     final map = <String, List<TipRecommendationModel>>{};
     for (final tip in tipsForFilter(filter)) {
       map.putIfAbsent(tip.section, () => []).add(tip);
@@ -827,64 +1097,66 @@ class AppController extends ChangeNotifier {
   }
 
   List<ProfileInfoItem> get profileInfo => [
-        ProfileInfoItem(
-          label: 'Nombre completo',
-          value: _profile.name,
-          icon: Icons.person_outline_rounded,
-        ),
-        ProfileInfoItem(
-          label: 'Email',
-          value: _profile.email,
-          icon: Icons.email_outlined,
-        ),
-        ProfileInfoItem(
-          label: 'Edad',
-          value: '${_profile.age} años',
-          icon: Icons.calendar_today_outlined,
-        ),
-        ProfileInfoItem(
-          label: 'Peso',
-          value: '${_profile.weightKg.toStringAsFixed(0)} kg',
-          icon: Icons.monitor_weight_outlined,
-        ),
-        ProfileInfoItem(
-          label: 'Objetivo principal',
-          value: _profile.goal,
-          icon: Icons.gps_fixed_rounded,
-        ),
-      ];
+    ProfileInfoItem(
+      label: 'Nombre completo',
+      value: _profile.name,
+      icon: Icons.person_outline_rounded,
+    ),
+    ProfileInfoItem(
+      label: 'Email',
+      value: _profile.email,
+      icon: Icons.email_outlined,
+    ),
+    ProfileInfoItem(
+      label: 'Edad',
+      value: '${_profile.age} años',
+      icon: Icons.calendar_today_outlined,
+    ),
+    ProfileInfoItem(
+      label: 'Peso',
+      value: '${_profile.weightKg.toStringAsFixed(0)} kg',
+      icon: Icons.monitor_weight_outlined,
+    ),
+    ProfileInfoItem(
+      label: 'Estatura',
+      value: '${_profile.heightCm.toStringAsFixed(0)} cm',
+      icon: Icons.height_rounded,
+    ),
+    ProfileInfoItem(
+      label: 'Objetivo principal',
+      value: _profile.goal,
+      icon: Icons.gps_fixed_rounded,
+    ),
+  ];
 
   List<ProfileStatItem> get profileStats => [
-        const ProfileStatItem(value: '1', label: 'Ciclos\nregistrados'),
-        ProfileStatItem(value: '$workoutsCount', label: 'Entrenamientos'),
-        ProfileStatItem(
-          value: '${_recentSymptoms.length}',
-          label: 'Días activa',
-        ),
-      ];
+    const ProfileStatItem(value: '1', label: 'Ciclos\nregistrados'),
+    ProfileStatItem(value: '$workoutsCount', label: 'Entrenamientos'),
+    ProfileStatItem(value: '${_recentSymptoms.length}', label: 'Días activa'),
+  ];
 
   List<ProfileMenuItem> get profileMenu => const [
-        ProfileMenuItem(
-          title: 'Notificaciones',
-          subtitle: 'Recordatorios y alertas',
-          icon: Icons.notifications_none_rounded,
-        ),
-        ProfileMenuItem(
-          title: 'Privacidad y seguridad',
-          subtitle: 'Gestiona tus datos',
-          icon: Icons.lock_outline_rounded,
-        ),
-        ProfileMenuItem(
-          title: 'Ayuda y soporte',
-          subtitle: 'Preguntas frecuentes',
-          icon: Icons.help_outline_rounded,
-        ),
-        ProfileMenuItem(
-          title: 'Configuración',
-          subtitle: 'Preferencias de la app',
-          icon: Icons.settings_outlined,
-        ),
-      ];
+    ProfileMenuItem(
+      title: 'Notificaciones',
+      subtitle: 'Recordatorios y alertas',
+      icon: Icons.notifications_none_rounded,
+    ),
+    ProfileMenuItem(
+      title: 'Privacidad y seguridad',
+      subtitle: 'Gestiona tus datos',
+      icon: Icons.lock_outline_rounded,
+    ),
+    ProfileMenuItem(
+      title: 'Ayuda y soporte',
+      subtitle: 'Preguntas frecuentes',
+      icon: Icons.help_outline_rounded,
+    ),
+    ProfileMenuItem(
+      title: 'Configuración',
+      subtitle: 'Preferencias de la app',
+      icon: Icons.settings_outlined,
+    ),
+  ];
 
   List<String> get _selectedMoodLabels => _moodCatalog
       .where((item) => _selectedMoodKeys.contains(item['key']))
@@ -1153,6 +1425,27 @@ class AppController extends ChangeNotifier {
       'Dic',
     ];
     return months[month];
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'Ahora';
+    if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+    if (diff.inDays == 1) return 'Ayer';
+    return 'Hace ${diff.inDays} dias';
+  }
+
+  String _initialsFor(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'CF';
+    final first = parts.first.characters.first;
+    final second = parts.length > 1 ? parts.last.characters.first : '';
+    return '$first$second'.toUpperCase();
   }
 
   Color _intensityColor(String intensity) {
