@@ -1135,28 +1135,28 @@ class AppController extends ChangeNotifier {
     ProfileStatItem(value: '${_recentSymptoms.length}', label: 'Días activa'),
   ];
 
-  List<ProfileMenuItem> get profileMenu => const [
-    ProfileMenuItem(
-      title: 'Notificaciones',
-      subtitle: 'Recordatorios y alertas',
-      icon: Icons.notifications_none_rounded,
-    ),
-    ProfileMenuItem(
-      title: 'Privacidad y seguridad',
-      subtitle: 'Gestiona tus datos',
-      icon: Icons.lock_outline_rounded,
-    ),
-    ProfileMenuItem(
-      title: 'Ayuda y soporte',
-      subtitle: 'Preguntas frecuentes',
-      icon: Icons.help_outline_rounded,
-    ),
-    ProfileMenuItem(
-      title: 'Configuración',
-      subtitle: 'Preferencias de la app',
-      icon: Icons.settings_outlined,
-    ),
-  ];
+List<ProfileMenuItem> get profileMenu => const [
+     ProfileMenuItem(
+       title: 'Notificaciones y alertas',
+       subtitle: 'Recordatorios y configuración de alertas',
+       icon: Icons.notifications_none_rounded,
+     ),
+     ProfileMenuItem(
+       title: 'Privacidad y seguridad',
+       subtitle: 'Verificación en 2 pasos, contraseña y más',
+       icon: Icons.lock_outline_rounded,
+     ),
+     ProfileMenuItem(
+       title: 'Ayuda y soporte',
+       subtitle: 'Preguntas frecuentes y contacto',
+       icon: Icons.help_outline_rounded,
+     ),
+     ProfileMenuItem(
+       title: 'Ajustes',
+       subtitle: 'Tema, idioma y unidades',
+       icon: Icons.settings_outlined,
+     ),
+   ];
 
   List<String> get _selectedMoodLabels => _moodCatalog
       .where((item) => _selectedMoodKeys.contains(item['key']))

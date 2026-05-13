@@ -7,4 +7,5 @@ class FirebasePaths {
   static const cycles = 'cycles';
   static const workouts = 'workouts';
   static const feedPosts = 'feed_posts';
+  static const notifications = 'notifications';
 }
