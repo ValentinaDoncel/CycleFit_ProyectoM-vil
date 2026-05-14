@@ -4,19 +4,20 @@ import 'package:cycle_fit/core/services/auth/auth_service.dart';
 /// Interceptor de autenticación que verifica si el usuario está autenticado
 /// antes de acceder a una ruta protegida
 class AuthInterceptor {
+  // Singleton para evitar crear múltiples instancias innecesarias
+  static final AuthService _authService = AuthService();
+
   static Future<bool> checkAuthentication() async {
-    final authService = AuthService();
-    
     // Recargar datos del usuario actual
-    await authService.reloadCurrentUser();
-    
-    return authService.isLoggedIn;
+    await _authService.reloadCurrentUser();
+
+    return _authService.isLoggedIn;
   }
 
   /// Obtener usuario actual o redirigir al login
   static Future<bool> requireAuthentication(BuildContext context) async {
     final isAuthenticated = await checkAuthentication();
-    
+
     if (!isAuthenticated && context.mounted) {
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -25,7 +26,7 @@ class AuthInterceptor {
       );
       return false;
     }
-    
+
     return true;
   }
 
@@ -35,7 +36,7 @@ class AuthInterceptor {
     String routeName,
   ) async {
     final isAuthenticated = await checkAuthentication();
-    
+
     if (isAuthenticated && context.mounted) {
       Navigator.pushNamed(context, routeName);
     } else if (context.mounted) {

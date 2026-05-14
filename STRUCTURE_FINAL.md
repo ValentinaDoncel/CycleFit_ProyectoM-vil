@@ -15,136 +15,234 @@ Se ha implementado un **sistema de autenticación empresarial con Firebase** par
 
 ## 📁 ÁRBOL DE ARCHIVOS CREADOS/MODIFICADOS
 
+### Módulo de Notificaciones (NUEVO)
+
 ```
 CycleFit_ProyectoM-vil/
 │
-├── 📄 AUTENTICACION_GUIA.md              ← Guía técnica completa
-├── 📄 SETUP_AUTENTICACION.md             ← Setup y configuración
-├── 📄 README_AUTENTICACION.md            ← Resumen ejecutivo
-├── 📄 VERIFICACION_FINAL.md              ← Checklist de verificación
+├── 📄 AUTENTICACION_GUIA.md
+├── 📄 SETUP_AUTENTICACION.md
+├── 📄 README_AUTENTICACION.md
+├── 📄 VERIFICACION_FINAL.md
 ├── 📄 STRUCTURE_FINAL.md                 ← Este archivo
 │
-├── pubspec.yaml                          ✏️  MODIFICADO
-│   └── + provider: ^6.0.0
+├── pubspec.yaml                          ✏️  MODIFICADO (+ flutter_local_notifications, timezone)
 │
 ├── lib/
 │   │
-│   ├── main.dart                         ✏️  MODIFICADO
-│   │   ├── Agregado StreamBuilder para auth
-│   │   ├── Rutas nombradas
-│   │   └── MultiProvider
+│   ├── main.dart                         ✏️  MODIFICADO (+ imports y ruta /notifications)
 │   │
 │   ├── 📂 models/
-│   │   └── 🆕 user_model.dart
-│   │       ├── UserModel class
-│   │       ├── fromJson() - desde Firestore
-│   │       ├── toJson() - para Firestore
-│   │       └── copyWith() - crear copias
-│   │
-│   ├── 📂 core/
-│   │   │
-│   │   ├── 📂 services/auth/
-│   │   │   └── 🆕 auth_service.dart
-│   │   │       ├── register()          ← Registro en Firebase + Firestore
-│   │   │       ├── login()             ← Login con validación
-│   │   │       ├── logout()            ← Cerrar sesión
-│   │   │       ├── sendPasswordResetEmail()
-│   │   │       ├── updateUser()
-│   │   │       ├── getCurrentUser()
-│   │   │       ├── reloadCurrentUser()
-│   │   │       ├── emailExists()
-│   │   │       ├── authStateChanges    ← Stream de cambios
-│   │   │       └── isLoggedIn          ← Singleton patern
-│   │   │
-│   │   ├── 📂 validators/
-│   │   │   └── 🆕 register_validators.dart
-│   │   │       ├── validateNombre()
-│   │   │       ├── validateEmail()
-│   │   │       ├── validatePassword()
-│   │   │       ├── validateConfirmPassword()
-│   │   │       ├── validateBirthDate()
-│   │   │       ├── validateAge()
-│   │   │       ├── validateLastPeriodDate()
-│   │   │       ├── validateOptionalNotes()
-│   │   │       └── parseUiDate()
-│   │   │
-│   │   └── 📂 auth/
-│   │       ├── 🆕 auth_guard.dart
-│   │       │   ├── AuthGuard widget
-│   │       │   └── Protege rutas
-│   │       │
-│   │       ├── 🆕 auth_interceptor.dart
-│   │       │   ├── checkAuthentication()
-│   │       │   ├── requireAuthentication()
-│   │       │   ├── verifyAndNavigate()
-│   │       │   └── ProtectedRoute widget
-│   │       │
-│   │       ├── 🆕 auth_helpers.dart
-│   │       │   ├── Extensión logout en BuildContext
-│   │       │   ├── AuthDialogs class
-│   │       │   ├── showLogoutConfirmation()
-│   │       │   ├── showSessionExpired()
-│   │       │   └── showAuthError()
-│   │       │
-│   │       └── 📄 EJEMPLOS_LOGOUT.md   ← 5+ ejemplos de código
+│   │   ├── app_models.dart               ✏️  MODIFICADO (+ AppTab.notifications)
+│   │   ├── 🆕 notification_model.dart    ← Modelo de datos para recordatorios
+│   │   ├── 🆕 settings_models.dart       ← Modelos de datos para ajustes
+│   │   └── user_model.dart
 │   │
 │   ├── 📂 controllers/
-│   │   ├── 🆕 login_controller.dart
-│   │   │   ├── ChangeNotifier
-│   │   │   ├── togglePasswordVisibility()
-│   │   │   ├── validateEmail()
-│   │   │   ├── validatePassword()
-│   │   │   ├── login()
-│   │   │   ├── requestPasswordReset()
-│   │   │   └── logout()
-│   │   │
-│   │   └── 🆕 register_controller.dart
-│   │       ├── ChangeNotifier
-│   │       ├── togglePasswordVisibility()
-│   │       ├── toggleConfirmPasswordVisibility()
-│   │       ├── setSelectedBirthDate()
-│   │       ├── validateNombre/Email/Password()
-│   │       ├── validateBirthDate/Age()
-│   │       ├── validateLastPeriodDate()
-│   │       ├── register()
-│   │       └── clearForm()
+│   │   ├── 🆕 notifications_controller.dart  ← ChangeNotifier para recordatorios
+│   │   ├── 🆕 settings_controller.dart       ← ChangeNotifier para ajustes
+│   │   ├── app_controller.dart
+│   │   ├── login_controller.dart
+│   │   └── register_controller.dart
 │   │
-│   └── 📂 views/auth/
-│       ├── 🆕 login_page.dart
-│       │   ├── Email input
-│       │   ├── Contraseña input
-│       │   ├── Toggle visibilidad
-│       │   ├── Error display
-│       │   ├── Loading state
-│       │   ├── Botón "Iniciar Sesión"
-│       │   ├── Link "¿Olvidaste tu contraseña?"
-│       │   ├── Link "Crear Nueva Cuenta"
-│       │   └── Validación en tiempo real
-│       │
-│       └── 🆕 register_page.dart
-│           ├── Nombre input (obligatorio)
-│           ├── Email input (obligatorio)
-│           ├── Contraseña input (obligatorio)
-│           ├── Confirmar Contraseña (obligatorio)
-│           ├── Fecha Nacimiento (opcional)
-│           ├── Última Menstruación (opcional)
-│           ├── Notas (opcional)
-│           ├── Date pickers
-│           ├── Error display
-│           ├── Loading state
-│           ├── Botón "Crear Cuenta"
-│           ├── Validación en tiempo real
-│           └── Link "Volver a Login"
+│   ├── 📂 views/
+│   │   ├── 📂 notifications/             ← 📁 NUEVA CARPETA
+│   │   │   ├── 🆕 notifications_page.dart     ← Pantalla principal de Notificaciones
+│   │   │   └── 🆕 (sub-pages si se necesitan)
+│   │   │
+│   │   ├── 📂 settings/                   ← 📁 NUEVA CARPETA
+│   │   │   ├── 🆕 settings_page.dart
+│   │   │   ├── 🆕 notifications_settings_page.dart
+│   │   │   ├── 🆕 privacy_security_page.dart
+│   │   │   ├── 🆕 help_support_page.dart
+│   │   │   └── 🆕 about_page.dart
+│   │   │
+│   │   ├── 📂 auth/
+│   │   │   ├── login_page.dart
+│   │   │   └── register_page.dart
+│   │   │
+│   │   ├── 📂 dashboard/
+│   │   │   └── dashboard_page.dart      ✏️  MODIFICADO (+ AppTab.notifications)
+│   │   │
+│   │   ├── 📂 profile/
+│   │   │   └── profile_page.dart        ✏️  MODIFICADO (navegación a Ajustes)
+│   │   │
+│   │   ├── 📂 cycle/
+│   │   │   └── cycle_page.dart
+│   │   │
+│   │   ├── 📂 symptoms/
+│   │   │   └── symptoms_page.dart
+│   │   │
+│   │   ├── 📂 exercise/
+│   │   │   └── exercise_page.dart
+│   │   │
+│   │   ├── 📂 feed/
+│   │   │   └── feed_page.dart
+│   │   │
+│   │   └── 📂 tips/
+│   │       ├── tips_page.dart
+│   │       └── tips_recommendations_page.dart
+│   │
+│   ├── 📂 core/
+│   │   ├── 📂 services/
+│   │   │   ├── 📂 firebase/
+│   │   │   │   ├── 🆕 notifications_firestore_service.dart
+│   │   │   │   ├── auth_service.dart
+│   │   │   │   ├── cycle_firestore_service.dart
+│   │   │   │   ├── feed_firestore_service.dart
+│   │   │   │   ├── feed_storage_service.dart
+│   │   │   │   ├── firebase_auth_service.dart
+│   │   │   │   ├── firebase_guard.dart
+│   │   │   │   ├── firebase_initializer.dart
+│   │   │   │   ├── firebase_paths.dart            ✏️  MODIFICADO (+ notifications)
+│   │   │   │   ├── firestore_service.dart
+│   │   │   │   ├── onboarding_firestore_service.dart
+│   │   │   │   ├── profile_firestore_service.dart
+│   │   │   │   ├── symptoms_firestore_service.dart
+│   │   │   │   └── workouts_firestore_service.dart
+│   │   │   ├── 📂 ai/
+│   │   │   └── 📂 auth/
+│   │   ├── 📂 auth/
+│   │   ├── 📂 validators/
+│   │   ├── 📂 theme/
+│   │   └── 📂 utils/
+│   │
+│   └── 📂 widgets/
+│       ├── app_shell.dart
+│       ├── bottom_nav_bar.dart          ✏️  MODIFICADO (+ botón Alertas)
+│       ├── surface_card.dart
+│       ├── section_title.dart
+│       ├── metric_slider_card.dart
+│       ├── onboarding_choice_tile.dart
+│       ├── onboarding_step_layout.dart
+│       └── section_title.dart
 │
-└── 📂 CAMBIOS/                           ← Referencia original
-    ├── README.md
-    ├── lib/
-    │   ├── Controllers/
-    │   ├── Core/
-    │   ├── Routes/
-    │   └── Services/
-    └── (Puede ser eliminada ahora)
+└── 📂 CAMBIOS/
 ```
+
+### Conteo de archivos nuevos: 10
+
+| Archivo | Ubicación | Propósito |
+|---------|-----------|-----------|
+| `notification_model.dart` | `lib/models/` | Modelo de datos para recordatorios |
+| `settings_models.dart` | `lib/models/` | Modelos de datos para ajustes |
+| `notifications_controller.dart` | `lib/controllers/` | State management para recordatorios (Firebase + local notifications) |
+| `settings_controller.dart` | `lib/controllers/` | State management para ajustes (toggles, prefs) |
+| `notifications_page.dart` | `lib/views/notifications/` | Pantalla de Notificaciones (formulario + lista) |
+| `notifications_settings_page.dart` | `lib/views/settings/` | Sub-pantalla para configurar canales de notificación |
+| `privacy_security_page.dart` | `lib/views/settings/` | Sub-pantalla de Privacidad y Seguridad |
+| `help_support_page.dart` | `lib/views/settings/` | Sub-pantalla de Ayuda y Soporte |
+| `about_page.dart` | `lib/views/settings/` | Sub-pantalla Acerca de |
+| `FirebasePaths.notifications` | `lib/core/services/firebase/firebase_paths.dart` | Nueva colección en Firestore |
+
+### Archivos modificados: 6
+
+| Archivo | Cambios |
+|---------|---------|
+| `pubspec.yaml` | + `flutter_local_notifications`, `timezone` |
+| `lib/main.dart` | + imports y ruta `/notifications` |
+| `lib/models/app_models.dart` | + `AppTab.notifications` |
+| `lib/views/dashboard/dashboard_page.dart` | + caso `AppTab.notifications` |
+| `lib/views/profile/profile_page.dart` | navegación a Settings desde menú |
+| `lib/widgets/bottom_nav_bar.dart` | + botón "Alertas" |
+| `lib/views/settings/settings_page.dart` | enlace a "Mis recordatorios" |
+
+---
+
+## 📖 DOCUMENTACIÓN DEL MÓDULO DE NOTIFICACIONES
+
+### 🎯 Objetivo
+Permitir al usuario crear, visualizar y gestionar recordatorios personalizados relacionados con el bienestar menstrual (ciclo, síntomas, ejercicio y uso general).
+
+### 🔗 Flujo de navegación
+```
+BottomNavBar ("Alertas") → NotificationsPage
+  ├─ Formulario "Nuevo recordatorio"
+  │   ├─ Campo texto: mensaje (placeholder: "Ej: Recuerda registrar tu ciclo")
+  │   ├─ Selector categoría: Ciclo / Síntomas / Ejercicio / General
+  │   ├─ Selector fecha/hora (showDatePicker + showTimePicker)
+  │   └─ Botón "+ Agregar recordatorio" → validación → Firestore → Snackbar confirmación
+  │
+  └─ Lista "Mis recordatorios"
+      ├─ Card con: emoji categoría, mensaje, categoría, fecha/hora
+      │   ├─ Switch (activar/desactivar alerta)
+      │   └─ Ícono de papelera (eliminar)
+      └─ Estado vacío: íconos + texto "No tienes recordatorios"
+```
+
+### 🧩 Estructura de datos (Firestore)
+```
+users/{uid}/notifications/{notificationId}
+├── message: string          // Texto del recordatorio
+├── category: string         // "Ciclo" | "Síntomas" | "Ejercicio" | "General"
+├── dateTime: timestamp      // Fecha y hora programada
+├── active: boolean          // Si la alerta está habilitada
+├── userId: string           // UID del usuario
+└── createdAt: timestamp     // Fecha de creación
+```
+
+### ⚙️ Lógica funcional
+
+**Crear recordatorio:**
+1. Validar que el mensaje no esté vacío
+2. Validar que se haya seleccionado fecha y hora
+3. Guardar en Firestore (`notifications_firestore_service.dart`)
+4. Si está activo, programar notificación local
+5. Mostrar Snackbar: "Recordatorio agregado correctamente"
+6. Limpiar formulario y recargar lista
+
+**Activar/desactivar alerta:**
+1. Toggle `active` en Firestore
+2. Si se activa → programar notificación local
+3. Si se desactiva → cancelar notificación local programada
+4. Actualizar estado local y UI en tiempo real
+
+**Eliminar recordatorio:**
+1. Eliminar documento de Firestore
+2. Remover de la lista local
+3. Cancelar notificación local si estaba programada
+
+### 🔔 Notificaciones locales
+- Usa `flutter_local_notifications` con canales Android e iOS
+- Se programan al crear un recordatorio activo
+- Se cancelan al desactivar o eliminar el recordatorio
+- Requiere `flutter_local_notifications` + `timezone` en `pubspec.yaml`
+
+### 🎨 Estilo visual (coherencia con la app)
+- Colores primarios: `#FF7A0A4F` (primario), `#FFF2E5EE` (suave), `#FFD79AFF` (secundario)
+- Tarjetas con `SurfaceCard` (bordes redondeados, sombras)
+- Tipografía del tema global (`Theme.of(context)`)
+- Botones redondeados (`RoundedRectangleBorder`)
+- Emojis como íconos de categoría para diferenciación visual
+
+### 🔌 Integración con Firebase
+- **Firestore**: Colección `notifications` dentro de `users/{uid}`
+- **Realtime**: `notificationsStream()` para actualización en tiempo real
+- **CRUD completo**: create, read, update, delete
+
+### 📦 Dependencias agregadas
+```yaml
+dependencies:
+  flutter_local_notifications: ^17.0.0
+  timezone: ^0.9.0
+```
+
+---
+
+## ⚠️ Notas de implementación
+
+1. **UID de usuario**: Actualmente se usa `'current_user'` como placeholder. Cuando se integre con el sistema de autenticación, reemplazar con `AuthService().currentUser.uid`.
+
+2. **Notificaciones en iOS**: Para que funcionen en iOS real, se requiere configurar los permisos en `AppDelegate.swift` y agregar las capabilities en Xcode.
+
+3. **Permisos Android**: No requiere configuración adicional para la mayoría de versiones. Para Android 13+, se necesita solicitar el permiso `POST_NOTIFICATIONS` en tiempo de ejecución.
+
+4. **Optimización**: El módulo usa `ListView.builder` con `shrinkWrap: true` para listas eficientes dentro de `SingleChildScrollView`.
+
+---
+
+*Módulo de Notificaciones implementado: Mayo 2026*
+*Estado: ✅ Listo para integración final*
 
 ---
 

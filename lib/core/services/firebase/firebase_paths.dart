@@ -8,4 +8,5 @@ class FirebasePaths {
   static const workouts = 'workouts';
   static const tips = 'tips';
   static const feedPosts = 'feed_posts';
+  static const notifications = 'notifications';
 }

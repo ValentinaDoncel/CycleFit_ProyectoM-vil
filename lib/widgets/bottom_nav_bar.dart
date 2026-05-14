@@ -4,11 +4,7 @@ import 'package:cycle_fit/models/app_models.dart';
 import 'package:flutter/material.dart';
 
 class BottomNavBar extends StatelessWidget {
-  const BottomNavBar({
-    super.key,
-    required this.controller,
-  });
-
+  const BottomNavBar({super.key, required this.controller});
   final AppController controller;
 
   @override
@@ -20,6 +16,7 @@ class BottomNavBar extends StatelessWidget {
       _NavItem(AppTab.exercise, 'Ejercicio', Icons.fitness_center_rounded),
       _NavItem(AppTab.feed, 'Feed', Icons.rss_feed_rounded),
       _NavItem(AppTab.tips, 'Tips', Icons.auto_awesome_outlined),
+      _NavItem(AppTab.profile, 'Perfil', Icons.person_outline_rounded),
     ];
 
     return Container(
@@ -96,7 +93,6 @@ class _BottomNavItem extends StatelessWidget {
 
 class _NavItem {
   const _NavItem(this.tab, this.label, this.icon);
-
   final AppTab tab;
   final String label;
   final IconData icon;

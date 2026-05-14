@@ -483,21 +483,23 @@ class RegisterController extends ChangeNotifier {
     return true;
   }
 
-  bool _validateBodyMetricsStep() {
-    final weight = double.tryParse(weightController.text.replaceAll(',', '.'));
-    if (weight == null || weight <= 0 || weight > 350) {
-      _errorMessage = 'Ingresa un peso corporal valido';
-      notifyListeners();
-      return false;
-    }
-    final height = double.tryParse(heightController.text.replaceAll(',', '.'));
-    if (height == null || height <= 0 || height > 250) {
-      _errorMessage = 'Ingresa una estatura valida en centimetros';
-      notifyListeners();
-      return false;
-    }
-    return true;
-  }
+bool _validateBodyMetricsStep() {
+     final weightText = weightController.text.replaceAll(',', '.');
+     final weight = double.tryParse(weightText);
+     if (weight == null || weight <= 0 || weight > 350) {
+       _errorMessage = 'Ingresa un peso corporal válido (máx. 350 kg)';
+       notifyListeners();
+       return false;
+     }
+     final heightText = heightController.text.replaceAll(',', '.');
+     final height = double.tryParse(heightText);
+     if (height == null || height <= 0 || height > 250) {
+       _errorMessage = 'Ingresa una estatura válida en centímetros (máx. 250 cm)';
+       notifyListeners();
+       return false;
+     }
+     return true;
+   }
 
   Future<void> _saveProfileFromRegistration(UserModel user) async {
     final existingProfile = await _profileService.getProfile(user.id);

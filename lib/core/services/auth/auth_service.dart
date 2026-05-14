@@ -45,7 +45,6 @@ class AuthService {
         throw Exception('Este email ya está registrado');
       }
 
-      // Crear usuario en Firebase Auth
       final credential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
@@ -56,7 +55,6 @@ class AuthService {
         throw Exception('No se pudo obtener el ID del usuario');
       }
 
-      // Crear documento en Firestore
       final nuevoUsuario = UserModel(
         id: uid,
         nombre: nombre.trim(),
@@ -75,7 +73,6 @@ class AuthService {
       _currentUser = nuevoUsuario;
       return nuevoUsuario;
     } on FirebaseAuthException catch (e) {
-      // Manejar errores específicos de Firebase Auth
       if (e.code == 'weak-password') {
         throw Exception('La contraseña es muy débil');
       } else if (e.code == 'email-already-in-use') {
@@ -286,6 +283,166 @@ class AuthService {
     }
   }
 
+  /// Cambiar contraseña del usuario actual
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
+      // Re-autenticar al usuario con credenciales actuales
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Actualizar contraseña en Firebase Auth
+      await user.updatePassword(newPassword);
+
+      // No almacenamos la contraseña en Firestore (Firebase Auth la maneja)
+      // Pero sí actualizamos el timestamp de actualización
+      await _usersCollection.doc(user.uid).update({
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('La contraseña actual es incorrecta');
+      } else if (e.code == 'weak-password') {
+        throw Exception('La nueva contraseña es muy débil');
+      } else if (e.code == 'requires-recent-login') {
+        throw Exception(
+            'Debes iniciar sesión recientemente para cambiar la contraseña');
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Cambiar email del usuario actual con verificación previa
+  /// Flow: 1) Re-autenticar, 2) Enviar verificación al nuevo email,
+  /// 3) Marcar como pendiente en Firestore, 4) El usuario verifica el enlace
+  Future<void> changeEmail({
+    required String newEmail,
+    required String password,
+  }) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
+      final normalizedEmail = newEmail.trim().toLowerCase();
+
+      // Paso 1: Re-autenticar al usuario con contraseña actual
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Paso 2: Enviar email de verificación al NUEVO correo
+      // verifyBeforeUpdateEmail envía un enlace de verificación al nuevo email
+      // y solo actualiza el email en Firebase Auth después de que el usuario
+      // haga clic en el enlace
+      await user.verifyBeforeUpdateEmail(normalizedEmail);
+
+      // Paso 3: Marcar como pendiente en Firestore hasta que verifique
+      await _usersCollection.doc(user.uid).update({
+        'pendingEmail': normalizedEmail,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('La contraseña actual es incorrecta');
+      } else if (e.code == 'email-already-in-use') {
+        throw Exception('Este email ya está registrado');
+      } else if (e.code == 'invalid-email') {
+        throw Exception('El email no es válido');
+      } else if (e.code == 'requires-recent-login') {
+        throw Exception(
+            'Debes iniciar sesión recientemente para cambiar el email');
+      } else if (e.code == 'credential-already-in-use') {
+        throw Exception(
+            'Ya hay una cuenta con este email vinculada');
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Confirmar cambio de email después de que el usuario verifique el enlace
+  Future<void> confirmEmailChange() async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
+      await user.reload();
+      final reloaded = _firebaseAuth.currentUser;
+      if (reloaded == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+
+      final newEmail = reloaded.email;
+      if (newEmail == null) {
+        throw Exception('No se pudo obtener el nuevo email');
+      }
+
+      // Actualizar en Firestore
+      await _usersCollection.doc(user.uid).update({
+        'email': newEmail,
+        'pendingEmail': FieldValue.delete(),
+        'emailVerificado': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Actualizar usuario local
+      _currentUser = await getCurrentUser();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw Exception(
+            'Debes iniciar sesión recientemente para confirmar el cambio');
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Actualizar email pendiente en Firestore (para bottom sheet)
+  Future<void> updateUserEmailPending(String pendingEmail) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        throw Exception('No hay usuario autenticado');
+      }
+      await _usersCollection.doc(user.uid).update({
+        'pendingEmail': pendingEmail,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Enviar email de verificación
+  Future<void> sendEmailVerification() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw Exception('No hay usuario autenticado');
+    }
+    if (user.emailVerified) return;
+    await user.sendEmailVerification();
+  }
+
   /// Enviar email de restablecimiento de contraseña
   Future<void> sendPasswordResetEmail(String email) async {
     try {
@@ -295,15 +452,6 @@ class AuthService {
     } catch (e) {
       rethrow;
     }
-  }
-
-  Future<void> sendEmailVerification() async {
-    final user = _firebaseAuth.currentUser;
-    if (user == null) {
-      throw Exception('No hay usuario autenticado');
-    }
-    if (user.emailVerified) return;
-    await user.sendEmailVerification();
   }
 
   Future<bool> hasValidSessionToken() async {

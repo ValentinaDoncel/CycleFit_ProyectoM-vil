@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key, required this.controller});
-
   final AppController controller;
 
   @override
@@ -45,7 +44,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _bodyForTab(AppTab tab) {
     final controller = widget.controller;
-
     switch (tab) {
       case AppTab.home:
         return HomePage(controller: controller);
