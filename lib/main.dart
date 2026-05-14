@@ -41,9 +41,7 @@ class _CycleFitAppState extends State<CycleFitApp> {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: _controller),
-      ],
+      providers: [ChangeNotifierProvider.value(value: _controller)],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'CycleFit',
@@ -55,9 +53,7 @@ class _CycleFitAppState extends State<CycleFitApp> {
             // Mientras se verifica el estado de autenticación
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                body: Center(child: CircularProgressIndicator()),
               );
             }
 
@@ -65,7 +61,8 @@ class _CycleFitAppState extends State<CycleFitApp> {
               return FutureBuilder<bool>(
                 future: _authService.hasValidSessionToken(),
                 builder: (context, tokenSnapshot) {
-                  if (tokenSnapshot.connectionState == ConnectionState.waiting) {
+                  if (tokenSnapshot.connectionState ==
+                      ConnectionState.waiting) {
                     return const Scaffold(
                       body: Center(child: CircularProgressIndicator()),
                     );
@@ -87,9 +84,10 @@ class _CycleFitAppState extends State<CycleFitApp> {
         routes: {
           '/login': (context) => const LoginPage(),
           '/register': (context) => const RegisterPage(),
-          '/dashboard': (context) => AuthGuard(
-                child: DashboardPage(controller: _controller),
-              ),
+          '/register-google-onboarding': (context) =>
+              const RegisterPage(googleOnboarding: true),
+          '/dashboard': (context) =>
+              AuthGuard(child: DashboardPage(controller: _controller)),
         },
       ),
     );

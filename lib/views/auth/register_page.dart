@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({super.key, this.googleOnboarding = false});
+
+  final bool googleOnboarding;
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -17,7 +19,13 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => RegisterController(),
+      create: (_) {
+        final controller = RegisterController();
+        if (widget.googleOnboarding) {
+          controller.startGoogleOnboardingForCurrentUser();
+        }
+        return controller;
+      },
       child: Consumer<RegisterController>(
         builder: (context, controller, _) {
           return OnboardingStepLayout(
@@ -31,8 +39,7 @@ class _RegisterPageState extends State<RegisterPage> {
             onSkipPressed: controller.canSkipCurrentStep
                 ? () async => _handleSkip(context, controller)
                 : null,
-            onPrimaryPressed: () async =>
-                _handleContinue(context, controller),
+            onPrimaryPressed: () async => _handleContinue(context, controller),
             child: _bodyForStep(context, controller),
           );
         },
@@ -50,6 +57,8 @@ class _RegisterPageState extends State<RegisterPage> {
           onLastPeriodTap: () => _selectLastPeriodDate(context, controller),
           onGooglePressed: () => _handleGoogleRegister(context, controller),
         );
+      case RegisterStep.bodyMetrics:
+        return _BodyMetricsStep(controller: controller);
       case RegisterStep.regularity:
         return OnboardingChoiceList(
           children: controller.regularityOptions
@@ -107,8 +116,9 @@ class _RegisterPageState extends State<RegisterPage> {
                       onTap: () => controller.selectEnergy(item.keyName),
                       compact: true,
                       selectedColor: _energyColor(item.keyName),
-                      selectedBackgroundColor:
-                          _energyColor(item.keyName).withValues(alpha: 0.14),
+                      selectedBackgroundColor: _energyColor(
+                        item.keyName,
+                      ).withValues(alpha: 0.14),
                       leading: Container(
                         width: 16,
                         height: 16,
@@ -240,6 +250,8 @@ class _RegisterPageState extends State<RegisterPage> {
     switch (step) {
       case RegisterStep.account:
         return 'Crea tu cuenta';
+      case RegisterStep.bodyMetrics:
+        return 'Cual es tu peso y estatura?';
       case RegisterStep.regularity:
         return '¿Es tu periodo regular?';
       case RegisterStep.symptoms:
@@ -274,11 +286,9 @@ class _RegisterPageState extends State<RegisterPage> {
     final success = await controller.continueFromCurrentStep();
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Te enviamos un correo para confirmar tu cuenta'),
-        ),
+        const SnackBar(content: Text('Registro completado correctamente')),
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
     }
   }
 
@@ -290,14 +300,12 @@ class _RegisterPageState extends State<RegisterPage> {
     controller.skipCurrentStep();
     if (!wasWorkoutStep) return;
 
-    final success = await controller.register();
+    final success = await controller.finishRegistrationFlow();
     if (success && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Te enviamos un correo para confirmar tu cuenta'),
-        ),
+        const SnackBar(content: Text('Registro completado correctamente')),
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
     }
   }
 
@@ -307,10 +315,13 @@ class _RegisterPageState extends State<RegisterPage> {
   ) async {
     final success = await controller.signInWithGoogle();
     if (success && context.mounted) {
+      if (controller.currentStep != RegisterStep.bodyMetrics) {
+        Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bienvenida a CycleFit')),
+        const SnackBar(content: Text('Completa tu perfil para continuar')),
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (_) => false);
     }
   }
 
@@ -472,6 +483,36 @@ class _AccountStep extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BodyMetricsStep extends StatelessWidget {
+  const _BodyMetricsStep({required this.controller});
+
+  final RegisterController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _TextInput(
+          controller: controller.weightController,
+          label: 'Peso corporal (kg)',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 14),
+        _TextInput(
+          controller: controller.heightController,
+          label: 'Estatura (cm)',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Usaremos estos datos para personalizar tu perfil y recomendaciones.',
+          style: TextStyle(color: Color(0xFF7E6E73), height: 1.35),
+        ),
+      ],
     );
   }
 }

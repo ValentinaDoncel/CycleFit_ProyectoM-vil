@@ -7,10 +7,7 @@ import 'package:cycle_fit/widgets/surface_card.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({
-    super.key,
-    required this.controller,
-  });
+  const HomePage({super.key, required this.controller});
 
   final AppController controller;
 
@@ -38,9 +35,9 @@ class HomePage extends StatelessWidget {
                     Text(
                       controller.currentDateLabel,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.muted,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -77,7 +74,8 @@ class HomePage extends StatelessWidget {
                         children: [
                           Text(
                             'Fase actual',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
                                   color: AppColors.muted,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -93,8 +91,9 @@ class HomePage extends StatelessWidget {
                               const SizedBox(width: 8),
                               Text(
                                 controller.currentPhaseLabel,
-                                style:
-                                    Theme.of(context).textTheme.headlineMedium,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
                               ),
                             ],
                           ),
@@ -108,14 +107,17 @@ class HomePage extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppColors.secondary, width: 2),
+                        border: Border.all(
+                          color: AppColors.secondary,
+                          width: 2,
+                        ),
                         color: const Color(0xFFF8EEFF),
                       ),
                       child: Text(
                         'Día ${controller.currentCycleDay}',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: const Color(0xFFB04FFB),
-                            ),
+                          color: const Color(0xFFB04FFB),
+                        ),
                       ),
                     ),
                   ],
@@ -169,8 +171,9 @@ class HomePage extends StatelessWidget {
                 Expanded(
                   child: _QuickAccessCard(
                     action: controller.quickActions[i],
-                    onTap: () =>
-                        controller.selectTab(controller.quickActions[i].targetTab),
+                    onTap: () => controller.selectTab(
+                      controller.quickActions[i].targetTab,
+                    ),
                   ),
                 ),
                 if (i == 0) const SizedBox(width: 22),
@@ -226,10 +229,7 @@ class HomePage extends StatelessWidget {
 }
 
 class _MetricBlock extends StatelessWidget {
-  const _MetricBlock({
-    required this.title,
-    required this.value,
-  });
+  const _MetricBlock({required this.title, required this.value});
 
   final String title;
   final String value;
@@ -242,9 +242,9 @@ class _MetricBlock extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.muted,
-                fontWeight: FontWeight.w500,
-              ),
+            color: AppColors.muted,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 4),
         Text(value, style: Theme.of(context).textTheme.titleLarge),
@@ -254,10 +254,7 @@ class _MetricBlock extends StatelessWidget {
 }
 
 class _QuickAccessCard extends StatelessWidget {
-  const _QuickAccessCard({
-    required this.action,
-    required this.onTap,
-  });
+  const _QuickAccessCard({required this.action, required this.onTap});
 
   final QuickActionModel action;
   final VoidCallback onTap;
@@ -286,9 +283,9 @@ class _QuickAccessCard extends StatelessWidget {
             Text(
               action.subtitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: AppColors.muted,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

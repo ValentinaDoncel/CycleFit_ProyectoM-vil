@@ -29,17 +29,17 @@ class _LoginPageState extends State<LoginPage> {
                 'CycleFit',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 'Inicia sesión en tu cuenta',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: 40),
               ChangeNotifierProvider(
@@ -146,8 +146,7 @@ class _LoginPageState extends State<LoginPage> {
                                 ? null
                                 : () async {
                                     if (_formKey.currentState!.validate()) {
-                                      final success =
-                                          await controller.login();
+                                      final success = await controller.login();
                                       if (!context.mounted || !success) return;
                                       Navigator.pushNamedAndRemoveUntil(
                                         context,
@@ -170,19 +169,20 @@ class _LoginPageState extends State<LoginPage> {
                                     width: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
                                         Colors.white,
                                       ),
                                     ),
                                   )
                                 : Text(
                                     'Iniciar Sesión',
-                                    style:
-                                        Theme.of(context).textTheme.labelLarge?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                   ),
                           ),
                           const SizedBox(height: 16),
@@ -190,9 +190,17 @@ class _LoginPageState extends State<LoginPage> {
                             onPressed: controller.isLoading
                                 ? null
                                 : () async {
-                                    final success =
-                                        await controller.signInWithGoogle();
+                                    final success = await controller
+                                        .signInWithGoogle();
                                     if (!context.mounted || !success) return;
+                                    if (controller.shouldRunGoogleOnboarding) {
+                                      Navigator.pushNamedAndRemoveUntil(
+                                        context,
+                                        '/register-google-onboarding',
+                                        (route) => false,
+                                      );
+                                      return;
+                                    }
                                     Navigator.pushNamedAndRemoveUntil(
                                       context,
                                       '/dashboard',
@@ -212,9 +220,7 @@ class _LoginPageState extends State<LoginPage> {
                             icon: const Icon(Icons.login_rounded),
                             label: Text(
                               'Continuar con Google',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
+                              style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -253,16 +259,13 @@ class _LoginPageState extends State<LoginPage> {
                             children: [
                               const Expanded(child: Divider()),
                               Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: Text(
                                   '¿No tienes cuenta?',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(
-                                        color: Colors.grey[600],
-                                      ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(color: Colors.grey[600]),
                                 ),
                               ),
                               const Expanded(child: Divider()),
@@ -287,9 +290,7 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             child: Text(
                               'Crear Nueva Cuenta',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelLarge
+                              style: Theme.of(context).textTheme.labelLarge
                                   ?.copyWith(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.w600,
