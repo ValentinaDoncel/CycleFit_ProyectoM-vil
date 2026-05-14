@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:cycle_fit/core/services/ai/gemini_tips_service.dart';
 import 'package:cycle_fit/core/services/firebase/cycle_firestore_service.dart';
+import 'package:cycle_fit/core/services/firebase/feed_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/firebase_auth_service.dart';
 import 'package:cycle_fit/core/services/firebase/profile_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/symptoms_firestore_service.dart';
+import 'package:cycle_fit/core/services/firebase/tips_preferences_firestore_service.dart';
 import 'package:cycle_fit/core/services/firebase/workouts_firestore_service.dart';
 import 'package:cycle_fit/core/theme/app_colors.dart';
 import 'package:cycle_fit/models/app_models.dart';
@@ -16,17 +18,24 @@ class AppController extends ChangeNotifier {
     CycleFirestoreService? cycleService,
     SymptomsFirestoreService? symptomsService,
     WorkoutsFirestoreService? workoutsService,
+    FeedFirestoreService? feedService,
+    TipsPreferencesFirestoreService? tipsPreferencesService,
     GeminiTipsService? geminiTipsService,
   })  : _profileService = profileService ?? const ProfileFirestoreService(),
         _cycleService = cycleService ?? const CycleFirestoreService(),
         _symptomsService = symptomsService ?? const SymptomsFirestoreService(),
         _workoutsService = workoutsService ?? const WorkoutsFirestoreService(),
+        _feedService = feedService ?? const FeedFirestoreService(),
+        _tipsPreferencesService =
+            tipsPreferencesService ?? const TipsPreferencesFirestoreService(),
         _geminiTipsService = geminiTipsService ?? const GeminiTipsService();
 
   final ProfileFirestoreService _profileService;
   final CycleFirestoreService _cycleService;
   final SymptomsFirestoreService _symptomsService;
   final WorkoutsFirestoreService _workoutsService;
+  final FeedFirestoreService _feedService;
+  final TipsPreferencesFirestoreService _tipsPreferencesService;
   final GeminiTipsService _geminiTipsService;
 
   AppTab _selectedTab = AppTab.home;
@@ -36,6 +45,7 @@ class AppController extends ChangeNotifier {
   CycleData _cycleData = CycleData.initial();
   List<WorkoutData> _workouts = const [];
   List<SymptomRecordData> _recentSymptoms = const [];
+  List<FeedPostData> _feedPosts = const [];
   double _energyLevel = 50;
   final Set<String> _selectedMoodKeys = {};
   final Set<String> _selectedSymptomKeys = {};
@@ -50,6 +60,7 @@ class AppController extends ChangeNotifier {
   bool _isSavingSymptoms = false;
   bool _isSavingProfile = false;
   bool _isSavingWorkout = false;
+  bool _isSavingFeedPost = false;
   bool _isRefreshingTips = false;
   String? _userId;
   String? _lastError;
@@ -95,6 +106,7 @@ class AppController extends ChangeNotifier {
   bool get isSavingSymptoms => _isSavingSymptoms;
   bool get isSavingProfile => _isSavingProfile;
   bool get isSavingWorkout => _isSavingWorkout;
+  bool get isSavingFeedPost => _isSavingFeedPost;
   bool get isRefreshingTips => _isRefreshingTips;
   String? get lastError => _lastError;
   String? get tipsError => _tipsError;
@@ -119,6 +131,8 @@ class AppController extends ChangeNotifier {
         _symptomsService.getRecordForDay(user.uid, _today),
         _symptomsService.getRecentRecords(user.uid, limit: 8),
         _workoutsService.getWorkouts(user.uid),
+        _feedService.getPosts(),
+        _tipsPreferencesService.getPreferences(user.uid),
       ]);
 
       _profile = results[0] as UserProfileData;
@@ -127,6 +141,11 @@ class AppController extends ChangeNotifier {
       final todayRecord = results[2] as SymptomRecordData?;
       _recentSymptoms = results[3] as List<SymptomRecordData>;
       _workouts = results[4] as List<WorkoutData>;
+      _feedPosts = results[5] as List<FeedPostData>;
+      final tipsPreferences = results[6] as TipsPreferencesData;
+      _favoriteTipIds
+        ..clear()
+        ..addAll(tipsPreferences.favoriteTipIds);
 
       if (todayRecord != null) {
         _energyLevel = todayRecord.energyLevel;
@@ -255,6 +274,7 @@ class AppController extends ChangeNotifier {
       _favoriteTipIds.add(tipId);
     }
     notifyListeners();
+    unawaited(_saveTipsPreferences());
   }
 
   void toggleTipExpanded(String tipId) {
@@ -356,6 +376,54 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> publishFeedPost({
+    required String content,
+    String? imageUrl,
+  }) async {
+    if (_userId == null || content.trim().isEmpty) return;
+    _isSavingFeedPost = true;
+    notifyListeners();
+
+    try {
+      await _feedService.createPost(
+        FeedPostData(
+          id: '',
+          authorId: _userId!,
+          authorName: _profile.name,
+          authorAvatarUrl: _profile.avatarUrl,
+          content: content.trim(),
+          imageUrl: (imageUrl?.trim().isEmpty ?? true) ? null : imageUrl!.trim(),
+          createdAt: DateTime.now(),
+        ),
+      );
+      _feedPosts = await _feedService.getPosts();
+    } finally {
+      _isSavingFeedPost = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> togglePostLike(String postId) async {
+    if (_userId == null) return;
+    FeedPostData? post;
+    for (final item in _feedPosts) {
+      if (item.id == postId) {
+        post = item;
+        break;
+      }
+    }
+    if (post == null) return;
+
+    final isLiked = post.likeUids.contains(_userId);
+    await _feedService.toggleLike(
+      postId: postId,
+      uid: _userId!,
+      isLiked: isLiked,
+    );
+    _feedPosts = await _feedService.getPosts();
+    notifyListeners();
+  }
+
   void goToPreviousMonth() {
     _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month - 1, 1);
     notifyListeners();
@@ -429,6 +497,16 @@ class AppController extends ChangeNotifier {
       _isRefreshingTips = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _saveTipsPreferences() async {
+    if (_userId == null) return;
+    await _tipsPreferencesService.savePreferences(
+      _userId!,
+      TipsPreferencesData(
+        favoriteTipIds: _favoriteTipIds.toList()..sort(),
+      ),
+    );
   }
 
   List<QuickActionModel> get quickActions => const [
@@ -576,28 +654,21 @@ class AppController extends ChangeNotifier {
         );
       }).toList();
 
-  List<PostModel> get posts => const [
-        PostModel(
-          author: 'María García',
-          timeAgo: 'Hace 2 horas',
-          content:
-              '¡Completé mi entrenamiento de cardio hoy! Me siento increíble durante mi fase ovulatoria 💪✨',
-          avatar: 'MG',
-          likes: 24,
-          comments: 1,
-          imageUrl:
-              'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80',
+  List<PostModel> get posts => _feedPosts
+      .map(
+        (post) => PostModel(
+          id: post.id,
+          author: post.authorName,
+          timeAgo: _timeAgo(post.createdAt),
+          content: post.content,
+          avatar: _initials(post.authorName),
+          likes: post.likeUids.length,
+          comments: post.commentsCount,
+          isLikedByCurrentUser: _userId != null && post.likeUids.contains(_userId),
+          imageUrl: post.imageUrl,
         ),
-        PostModel(
-          author: 'Laura Martínez',
-          timeAgo: 'Hace 5 horas',
-          content:
-              'Día de yoga suave. Escuchando a mi cuerpo durante la fase lútea 🙏',
-          avatar: 'LM',
-          likes: 18,
-          comments: 0,
-        ),
-      ];
+      )
+      .toList();
 
   List<TipHeroModel> get tipHeroes => _aiTipHeroes ?? _defaultTipHeroes;
 
@@ -855,7 +926,12 @@ class AppController extends ChangeNotifier {
       ];
 
   List<ProfileStatItem> get profileStats => [
-        const ProfileStatItem(value: '1', label: 'Ciclos\nregistrados'),
+        ProfileStatItem(
+          value: _cycleData.periodStartDate == CycleData.initial().periodStartDate
+              ? '0'
+              : '1',
+          label: 'Ciclos\nregistrados',
+        ),
         ProfileStatItem(value: '$workoutsCount', label: 'Entrenamientos'),
         ProfileStatItem(
           value: '${_recentSymptoms.length}',
@@ -1031,6 +1107,23 @@ class AppController extends ChangeNotifier {
         .replaceAll('ú', 'u')
         .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'Hace unos segundos';
+    if (diff.inHours < 1) return 'Hace ${diff.inMinutes} min';
+    if (diff.inDays < 1) return 'Hace ${diff.inHours} h';
+    if (diff.inDays == 1) return 'Hace 1 día';
+    return 'Hace ${diff.inDays} días';
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return 'CF';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return '${parts.first.substring(0, 1)}${parts[1].substring(0, 1)}'
+        .toUpperCase();
   }
 
   int _cycleDayForDate(DateTime date) {

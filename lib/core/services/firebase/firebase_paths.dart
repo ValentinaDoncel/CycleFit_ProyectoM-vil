@@ -6,5 +6,6 @@ class FirebasePaths {
   static const symptoms = 'symptoms';
   static const cycles = 'cycles';
   static const workouts = 'workouts';
+  static const tips = 'tips';
   static const feedPosts = 'feed_posts';
 }

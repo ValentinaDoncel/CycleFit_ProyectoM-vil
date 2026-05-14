@@ -79,22 +79,79 @@ class WorkoutBarModel {
 
 class PostModel {
   const PostModel({
+    required this.id,
     required this.author,
     required this.timeAgo,
     required this.content,
     required this.avatar,
     required this.likes,
     required this.comments,
+    this.isLikedByCurrentUser = false,
     this.imageUrl,
   });
 
+  final String id;
   final String author;
   final String timeAgo;
   final String content;
   final String avatar;
   final int likes;
   final int comments;
+  final bool isLikedByCurrentUser;
   final String? imageUrl;
+}
+
+class FeedPostData {
+  const FeedPostData({
+    required this.id,
+    required this.authorId,
+    required this.authorName,
+    required this.authorAvatarUrl,
+    required this.content,
+    required this.createdAt,
+    this.likeUids = const [],
+    this.commentsCount = 0,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String authorId;
+  final String authorName;
+  final String authorAvatarUrl;
+  final String content;
+  final DateTime createdAt;
+  final List<String> likeUids;
+  final int commentsCount;
+  final String? imageUrl;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'authorId': authorId,
+      'authorName': authorName,
+      'authorAvatarUrl': authorAvatarUrl,
+      'content': content,
+      'imageUrl': imageUrl,
+      'likeUids': likeUids,
+      'commentsCount': commentsCount,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory FeedPostData.fromMap(String id, Map<String, dynamic> map) {
+    final createdAt = map['createdAt'];
+    return FeedPostData(
+      id: id,
+      authorId: map['authorId'] as String? ?? '',
+      authorName: map['authorName'] as String? ?? 'Usuaria',
+      authorAvatarUrl: map['authorAvatarUrl'] as String? ?? '',
+      content: map['content'] as String? ?? '',
+      createdAt: createdAt is Timestamp ? createdAt.toDate() : DateTime.now(),
+      likeUids: List<String>.from(map['likeUids'] as List? ?? const []),
+      commentsCount: (map['commentsCount'] as num?)?.toInt() ?? 0,
+      imageUrl: map['imageUrl'] as String?,
+    );
+  }
 }
 
 class ProfileInfoItem {
@@ -392,6 +449,28 @@ class OnboardingStatusData {
       completedWorkout: completedWorkout ?? this.completedWorkout,
       skippedSymptoms: skippedSymptoms ?? this.skippedSymptoms,
       skippedWorkout: skippedWorkout ?? this.skippedWorkout,
+    );
+  }
+}
+
+class TipsPreferencesData {
+  const TipsPreferencesData({
+    this.favoriteTipIds = const [],
+  });
+
+  final List<String> favoriteTipIds;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'favoriteTipIds': favoriteTipIds,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  factory TipsPreferencesData.fromMap(Map<String, dynamic> map) {
+    return TipsPreferencesData(
+      favoriteTipIds:
+          List<String>.from(map['favoriteTipIds'] as List? ?? const []),
     );
   }
 }

@@ -31,4 +31,13 @@ class FirestoreService {
   static CollectionReference<Map<String, dynamic>> workoutsCollection(String uid) {
     return userDoc(uid).collection(FirebasePaths.workouts);
   }
+
+  static DocumentReference<Map<String, dynamic>> tipsPreferencesDoc(String uid) {
+    return userDoc(uid).collection(FirebasePaths.tips).doc('preferences');
+  }
+
+  static CollectionReference<Map<String, dynamic>> feedPostsCollection() {
+    FirebaseGuard.ensureInitialized();
+    return instance.collection(FirebasePaths.feedPosts);
+  }
 }

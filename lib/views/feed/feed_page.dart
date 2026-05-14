@@ -27,46 +27,49 @@ class FeedPage extends StatelessWidget {
           Text(
             'Comparte tu progreso con la comunidad',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.muted,
-              fontWeight: FontWeight.w500,
-            ),
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w500,
+                ),
           ),
           const SizedBox(height: 20),
           SurfaceCard(
             child: Column(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _AvatarCircle(label: 'CF'),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 18,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          '¿Cómo te sientes hoy?',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: AppColors.muted,
-                                fontWeight: FontWeight.w500,
-                              ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _showCreatePostDialog(context),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AvatarCircle(label: controller.profileFirstName.substring(0, 1)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 18,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(
+                            '¿Cómo te sientes hoy?',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppColors.muted,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
                 Row(
                   children: [
                     TextButton.icon(
-                      onPressed: () {},
+                      onPressed: () => _showCreatePostDialog(context),
                       icon: const Icon(
                         Icons.photo_library_outlined,
                         color: AppColors.primary,
@@ -82,8 +85,12 @@ class FeedPage extends StatelessWidget {
                         backgroundColor: const Color(0xFFC594B4),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () {},
-                      child: const Text('Publicar'),
+                      onPressed: controller.isSavingFeedPost
+                          ? null
+                          : () => _showCreatePostDialog(context),
+                      child: Text(
+                        controller.isSavingFeedPost ? 'Publicando...' : 'Publicar',
+                      ),
                     ),
                   ],
                 ),
@@ -91,20 +98,95 @@ class FeedPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          for (final post in controller.posts) ...[
-            _PostCard(post: post),
-            const SizedBox(height: 16),
-          ],
+          if (controller.posts.isEmpty)
+            SurfaceCard(
+              child: Text(
+                'Aún no hay publicaciones. Sé la primera en compartir tu progreso.',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.text,
+                      height: 1.6,
+                    ),
+              ),
+            )
+          else
+            for (final post in controller.posts) ...[
+              _PostCard(
+                post: post,
+                onLike: () => controller.togglePostLike(post.id),
+              ),
+              const SizedBox(height: 16),
+            ],
         ],
       ),
+    );
+  }
+
+  Future<void> _showCreatePostDialog(BuildContext context) async {
+    final contentController = TextEditingController();
+    final imageController = TextEditingController();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Nueva publicación'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: contentController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: '¿Qué quieres compartir?',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: imageController,
+                  decoration: const InputDecoration(
+                    labelText: 'URL de imagen (opcional)',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: controller.isSavingFeedPost
+                  ? null
+                  : () async {
+                      await controller.publishFeedPost(
+                        content: contentController.text,
+                        imageUrl: imageController.text,
+                      );
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+              child: Text(
+                controller.isSavingFeedPost ? 'Publicando...' : 'Publicar',
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post});
+  const _PostCard({
+    required this.post,
+    required this.onLike,
+  });
 
   final PostModel post;
+  final VoidCallback onLike;
 
   @override
   Widget build(BuildContext context) {
@@ -151,11 +233,26 @@ class _PostCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              const Icon(Icons.favorite_border_rounded, color: AppColors.muted),
-              const SizedBox(width: 6),
-              Text(
-                '${post.likes}',
-                style: Theme.of(context).textTheme.titleMedium,
+              InkWell(
+                onTap: onLike,
+                borderRadius: BorderRadius.circular(20),
+                child: Row(
+                  children: [
+                    Icon(
+                      post.isLikedByCurrentUser
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: post.isLikedByCurrentUser
+                          ? AppColors.primary
+                          : AppColors.muted,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${post.likes}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: 18),
               const Icon(Icons.mode_comment_outlined, color: AppColors.muted),
